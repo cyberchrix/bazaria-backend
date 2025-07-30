@@ -3,6 +3,7 @@
 import os
 import json
 import re
+import traceback
 from typing import List, Dict, Any
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -11,8 +12,13 @@ from appwrite.services.databases import Databases
 from appwrite.query import Query
 from criteria_utils import format_criteria_with_labels
 
+import logging
+
 # Configuration
 # OPENAI_API_KEY doit être définie comme variable d'environnement
+
+# Logger pour ce module
+logger = logging.getLogger(__name__)
 
 # Configuration Appwrite
 APPWRITE_ENDPOINT = os.environ.get("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
@@ -32,34 +38,56 @@ class HybridSearchAPI:
     
     def _load_components(self):
         """Charge l'index FAISS et la connexion Appwrite"""
-        print("🔧 Initialisation de l'API de recherche hybride...")
+        logger.info("🔧 Initialisation de l'API de recherche hybride...")
         
         # Configuration OpenAI
         os.environ["OPENAI_API_KEY"] = self.openai_api_key
+        logger.info("✅ Configuration OpenAI OK")
         
         # Charger l'index FAISS
         try:
             INDEX_DIR = "index_bazaria"
+            logger.info(f"🔍 Vérification de l'index dans '{INDEX_DIR}'...")
+            
             if not os.path.exists(INDEX_DIR):
+                logger.error(f"❌ Index non trouvé dans '{INDEX_DIR}'")
                 raise FileNotFoundError(f"Index non trouvé dans '{INDEX_DIR}'")
             
+            logger.info("📦 Chargement de l'index FAISS...")
             embeddings = OpenAIEmbeddings()
             self.vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
-            print("✅ Index FAISS chargé")
+            logger.info("✅ Index FAISS chargé avec succès")
         except Exception as e:
-            print(f"❌ Erreur lors du chargement de l'index: {e}")
+            logger.error(f"❌ Erreur lors du chargement de l'index: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return
         
         # Connexion Appwrite
         try:
+            logger.info("🔌 Connexion à Appwrite...")
+            logger.info(f"   Endpoint: {APPWRITE_ENDPOINT}")
+            logger.info(f"   Project ID: {APPWRITE_PROJECT}")
+            logger.info(f"   Database ID: {DATABASE_ID}")
+            logger.info(f"   Collection ID: {COLLECTION_ID}")
+            
             client = Client()
             client.set_endpoint(APPWRITE_ENDPOINT)
             client.set_project(APPWRITE_PROJECT)
             client.set_key(APPWRITE_API_KEY)
             self.db = Databases(client)
-            print("✅ Connexion Appwrite établie")
+            
+            # Test de connexion
+            logger.info("🧪 Test de connexion Appwrite...")
+            test_response = self.db.list_documents(
+                database_id=DATABASE_ID,
+                collection_id=COLLECTION_ID,
+                queries=[Query.limit(1)]
+            )
+            logger.info(f"✅ Connexion Appwrite établie - {len(test_response['documents'])} document(s) de test récupéré(s)")
         except Exception as e:
-            print(f"❌ Erreur lors de la connexion Appwrite: {e}")
+            logger.error(f"❌ Erreur lors de la connexion Appwrite: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            self.db = None
     
     def text_search(self, query: str, announcements: List[Dict]) -> List[Dict]:
         """Recherche textuelle dans l'index FAISS (inclut les caractéristiques)"""
@@ -141,46 +169,62 @@ class HybridSearchAPI:
     
     def hybrid_search(self, query: str, limit: int = 5) -> Dict[str, Any]:
         """Recherche hybride combinant textuelle et sémantique"""
+        logger.info(f"🔍 Début de la recherche hybride pour: '{query}' (limit: {limit})")
         
         # Récupérer toutes les annonces pour la recherche textuelle
         try:
+            logger.info("📥 Récupération des annonces depuis Appwrite...")
             # Récupérer toutes les annonces avec pagination
             all_announcements = []
             offset = 0
-            limit = 25
+            page_limit = 25
+            page_count = 0
             
             while True:
+                page_count += 1
+                logger.info(f"📄 Récupération page {page_count} (offset: {offset})")
+                
                 response = self.db.list_documents(
                     database_id=DATABASE_ID, 
                     collection_id=COLLECTION_ID, 
                     queries=[
-                        Query.limit(limit),
+                        Query.limit(page_limit),
                         Query.offset(offset)
                     ]
                 )
                 announcements = response['documents']
                 
                 if len(announcements) == 0:
+                    logger.info("🏁 Fin de pagination (aucune annonce)")
                     break
                 
                 all_announcements.extend(announcements)
-                offset += limit
+                offset += page_limit
                 
                 # Si on a moins d'annonces que la limite, c'est la dernière page
-                if len(announcements) < limit:
+                if len(announcements) < page_limit:
+                    logger.info("🏁 Dernière page atteinte")
                     break
                 
+            logger.info(f"📊 Total d'annonces récupérées: {len(all_announcements)}")
+                
         except Exception as e:
-            print(f"❌ Erreur lors de la récupération des annonces: {e}")
+            logger.error(f"❌ Erreur lors de la récupération des annonces: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {"error": "Impossible de récupérer les annonces"}
         
         # Recherche textuelle
+        logger.info("🔍 Exécution de la recherche textuelle...")
         text_results = self.text_search(query, all_announcements)
+        logger.info(f"📝 Résultats textuels trouvés: {len(text_results)}")
         
         # Recherche sémantique avec seuil strict
+        logger.info("🧠 Exécution de la recherche sémantique...")
         semantic_results = self.semantic_search(query, min_score=0.7)
+        logger.info(f"🧠 Résultats sémantiques trouvés: {len(semantic_results)}")
         
         # Combiner et dédupliquer les résultats
+        logger.info("🔗 Combinaison des résultats...")
         combined_results = []
         seen_ids = set()
         
@@ -199,6 +243,8 @@ class HybridSearchAPI:
         # Trier par score et limiter
         combined_results.sort(key=lambda x: x['score'], reverse=True)
         combined_results = combined_results[:limit]
+        
+        logger.info(f"✅ Recherche terminée: {len(combined_results)} résultats finaux")
         
         return {
             "query": query,

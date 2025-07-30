@@ -6,9 +6,23 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import uvicorn
+import logging
+import traceback
+from datetime import datetime
 
 # Import de notre système de recherche
 from hybrid_search import HybridSearchAPI
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('api.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
 # OPENAI_API_KEY doit être définie comme variable d'environnement
@@ -70,9 +84,36 @@ def get_search_api():
 async def startup_event():
     """Initialisation au démarrage"""
     global search_api
-    print("🚀 Démarrage de l'API Bazaria Search...")
-    search_api = HybridSearchAPI(os.environ["OPENAI_API_KEY"])
-    print("✅ API initialisée avec succès")
+    logger.info("🚀 Démarrage de l'API Bazaria Search...")
+    
+    # Vérifier les variables d'environnement
+    required_vars = [
+        "OPENAI_API_KEY",
+        "APPWRITE_ENDPOINT", 
+        "APPWRITE_PROJECT_ID",
+        "APPWRITE_API_KEY",
+        "APPWRITE_DATABASE_ID",
+        "APPWRITE_COLLECTION_ID"
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing_vars.append(var)
+            logger.error(f"❌ Variable d'environnement manquante: {var}")
+    
+    if missing_vars:
+        logger.error(f"❌ Variables manquantes: {missing_vars}")
+    else:
+        logger.info("✅ Toutes les variables d'environnement sont configurées")
+    
+    try:
+        search_api = HybridSearchAPI(os.environ["OPENAI_API_KEY"])
+        logger.info("✅ API de recherche initialisée avec succès")
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de l'initialisation de l'API: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
 
 @app.get("/", response_model=HealthResponse)
 async def root():
@@ -85,19 +126,32 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Vérification de l'état de l'API"""
+    logger.info("🔍 Health check demandé")
     try:
         api = get_search_api()
+        
+        # Vérifications détaillées
+        vectorstore_status = "✅" if api.vectorstore else "❌"
+        db_status = "✅" if api.db else "❌"
+        
+        logger.info(f"Index FAISS: {vectorstore_status}")
+        logger.info(f"Connexion Appwrite: {db_status}")
+        
         if api.vectorstore and api.db:
+            logger.info("✅ API entièrement opérationnelle")
             return HealthResponse(
                 status="healthy",
                 message="API opérationnelle - Index FAISS et Appwrite connectés"
             )
         else:
+            logger.warning("⚠️ API partiellement opérationnelle")
             return HealthResponse(
                 status="warning",
                 message="API partiellement opérationnelle - Vérifiez les connexions"
             )
     except Exception as e:
+        logger.error(f"❌ Erreur lors du health check: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur de santé: {str(e)}")
 
 @app.post("/search", response_model=SearchResponse)
@@ -108,14 +162,19 @@ async def search_announcements(request: SearchRequest, api: HybridSearchAPI = De
     - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
     - **limit**: Nombre maximum de résultats (défaut: 10)
     """
+    logger.info(f"🔍 Recherche demandée: '{request.query}' (limit: {request.limit})")
+    
     try:
         if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
             raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
         
         # Effectuer la recherche
+        logger.info("🔍 Exécution de la recherche hybride...")
         results = api.hybrid_search(request.query, limit=request.limit)
         
         if "error" in results:
+            logger.error(f"❌ Erreur lors de la recherche: {results['error']}")
             raise HTTPException(status_code=500, detail=results["error"])
         
         # Convertir les résultats en format Pydantic
@@ -131,6 +190,10 @@ async def search_announcements(request: SearchRequest, api: HybridSearchAPI = De
                 score=result["score"]
             ))
         
+        logger.info(f"✅ Recherche terminée: {results['total_results']} résultats trouvés")
+        logger.info(f"   - Correspondances textuelles: {results['text_results']}")
+        logger.info(f"   - Correspondances sémantiques: {results['semantic_results']}")
+        
         return SearchResponse(
             query=results["query"],
             total_results=results["total_results"],
@@ -142,6 +205,8 @@ async def search_announcements(request: SearchRequest, api: HybridSearchAPI = De
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
 
 @app.get("/search/{query}", response_model=SearchResponse)
