@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bazaria-search-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./render_start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
+      - key: OPENAI_API_KEY
+        sync: false  # À configurer dans l'interface Render
+      - key: APPWRITE_ENDPOINT
+        sync: false  # À configurer dans l'interface Render
+      - key: APPWRITE_PROJECT_ID
+        sync: false  # À configurer dans l'interface Render
+      - key: APPWRITE_API_KEY
+        sync: false  # À configurer dans l'interface Render
+      - key: APPWRITE_DATABASE_ID
+        sync: false  # À configurer dans l'interface Render
+      - key: APPWRITE_COLLECTION_ID
+        sync: false  # À configurer dans l'interface Render 

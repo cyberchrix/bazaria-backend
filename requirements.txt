@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+langchain
+openai
+faiss-cpu
+langchain-community
+langchain-openai
+python-appwrite
+requests
