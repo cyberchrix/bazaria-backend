@@ -5,6 +5,7 @@ Script pour générer l'index FAISS au démarrage si il n'existe pas
 
 import os
 import logging
+import traceback
 from generate_index_paginated import main as generate_index
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def check_and_generate_index():
         
     except Exception as e:
         logger.error(f"❌ Erreur lors de la génération de l'index: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return False
 
 if __name__ == "__main__":

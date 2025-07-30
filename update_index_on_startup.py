@@ -6,6 +6,7 @@ Script pour vérifier et mettre à jour l'index FAISS au démarrage
 import os
 import json
 import logging
+import traceback
 from datetime import datetime, timedelta
 from update_index import update_index, rebuild_index
 
@@ -28,6 +29,7 @@ def check_and_update_index():
             return True
         except Exception as e:
             logger.error(f"❌ Erreur lors de la génération: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     # Si l'index existe, vérifier s'il faut le mettre à jour
@@ -53,6 +55,7 @@ def check_and_update_index():
             
     except Exception as e:
         logger.error(f"❌ Erreur lors de la mise à jour: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         logger.error("🔄 Tentative de reconstruction complète...")
         try:
             rebuild_index()
@@ -60,6 +63,7 @@ def check_and_update_index():
             return True
         except Exception as e2:
             logger.error(f"❌ Erreur lors de la reconstruction: {e2}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
 if __name__ == "__main__":
