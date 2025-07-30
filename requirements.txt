@@ -5,5 +5,5 @@ openai
 faiss-cpu
 langchain-community
 langchain-openai
-python-appwrite
+appwrite
 requests
