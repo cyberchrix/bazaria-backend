@@ -108,12 +108,12 @@ async def startup_event():
         logger.info("✅ Toutes les variables d'environnement sont configurées")
     
     try:
-        # Vérifier et générer l'index si nécessaire
-        from generate_index_on_startup import check_and_generate_index
-        index_ok = check_and_generate_index()
+        # Vérifier et mettre à jour l'index si nécessaire
+        from update_index_on_startup import check_and_update_index
+        index_ok = check_and_update_index()
         
         if not index_ok:
-            logger.error("❌ Impossible de générer l'index FAISS")
+            logger.error("❌ Impossible de mettre à jour l'index FAISS")
             raise Exception("Index FAISS non disponible")
         
         search_api = HybridSearchAPI(os.environ["OPENAI_API_KEY"])
@@ -284,6 +284,50 @@ async def get_stats(api: HybridSearchAPI = Depends(get_search_api)):
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des stats: {str(e)}")
+
+@app.post("/admin/rebuild-index")
+async def rebuild_index_endpoint():
+    """Force la reconstruction complète de l'index (admin only)"""
+    try:
+        logger.info("🔄 Reconstruction forcée de l'index demandée...")
+        
+        from update_index import rebuild_index
+        rebuild_index()
+        
+        logger.info("✅ Index reconstruit avec succès")
+        return {"message": "Index reconstruit avec succès", "status": "success"}
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de la reconstruction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la reconstruction: {str(e)}")
+
+@app.post("/admin/update-index")
+async def update_index_endpoint():
+    """Met à jour l'index avec les nouvelles annonces (admin only)"""
+    try:
+        logger.info("🔄 Mise à jour de l'index demandée...")
+        
+        from update_index import update_index
+        result = update_index()
+        
+        if result.get("success"):
+            logger.info(f"✅ Index mis à jour: {result.get('new_announcements', 0)} nouvelles annonces")
+            return {
+                "message": f"Index mis à jour avec {result.get('new_announcements', 0)} nouvelles annonces",
+                "status": "success",
+                "new_announcements": result.get('new_announcements', 0)
+            }
+        else:
+            logger.warning(f"⚠️ Mise à jour partielle: {result.get('message', 'Erreur inconnue')}")
+            return {
+                "message": result.get('message', 'Erreur inconnue'),
+                "status": "partial",
+                "new_announcements": result.get('new_announcements', 0)
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de la mise à jour: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
 
 if __name__ == "__main__":
     # Configuration pour le développement
