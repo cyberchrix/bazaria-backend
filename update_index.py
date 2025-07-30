@@ -97,7 +97,7 @@ def update_index():
                 
         except Exception as e:
             print(f"❌ Erreur lors de la récupération: {e}")
-            break
+            return {"success": False, "new_announcements": 0, "message": f"Erreur lors de la récupération: {e}"}
     
     print(f"📊 Total d'annonces récupérées: {len(all_annonces)}")
     
@@ -111,7 +111,7 @@ def update_index():
     
     if len(new_annonces) == 0:
         print("✅ Aucune nouvelle annonce à indexer")
-        return
+        return {"success": True, "new_announcements": 0, "message": "Aucune nouvelle annonce à indexer"}
     
     # Charger l'index existant ou en créer un nouveau
     embeddings = OpenAIEmbeddings()
@@ -154,6 +154,8 @@ def update_index():
     print(f"\n📊 Statistiques finales:")
     print(f"  - Total d'annonces indexées: {len(indexed_ids)}")
     print(f"  - Nouvelles annonces ajoutées: {len(new_annonces)}")
+    
+    return {"success": True, "new_announcements": len(new_annonces), "message": f"{len(new_annonces)} nouvelles annonces indexées"}
 
 def rebuild_index():
     """Reconstruit complètement l'index (option de secours)"""
@@ -170,9 +172,9 @@ def rebuild_index():
         os.remove(INDEXED_IDS_FILE)
         print("🗑️ Ancienne liste d'IDs supprimée")
     
-    # Relancer l'indexation complète
-    import subprocess
-    subprocess.run(["venv/bin/python", "generate_index_paginated.py"])
+    # Relancer l'indexation complète en appelant directement la fonction
+    from generate_index_paginated import main as generate_index
+    generate_index()
     
     print("✅ Index reconstruit avec succès")
 
