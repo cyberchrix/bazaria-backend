@@ -165,12 +165,12 @@ async def health_check():
 @app.post("/search", response_model=SearchResponse)
 async def search_announcements(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
     """
-    Recherche d'annonces avec système hybride
+    Recherche d'annonces avec système hybride (complet mais plus lent)
     
     - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
     - **limit**: Nombre maximum de résultats (défaut: 10)
     """
-    logger.info(f"🔍 Recherche demandée: '{request.query}' (limit: {request.limit})")
+    logger.info(f"🔍 Recherche hybride demandée: '{request.query}' (limit: {request.limit})")
     
     try:
         if not request.query.strip():
@@ -198,7 +198,7 @@ async def search_announcements(request: SearchRequest, api: HybridSearchAPI = De
                 score=result["score"]
             ))
         
-        logger.info(f"✅ Recherche terminée: {results['total_results']} résultats trouvés")
+        logger.info(f"✅ Recherche hybride terminée: {results['total_results']} résultats trouvés")
         logger.info(f"   - Correspondances textuelles: {results['text_results']}")
         logger.info(f"   - Correspondances sémantiques: {results['semantic_results']}")
         
@@ -216,6 +216,81 @@ async def search_announcements(request: SearchRequest, api: HybridSearchAPI = De
         logger.error(f"❌ Erreur inattendue lors de la recherche: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
+
+@app.post("/search/fast", response_model=SearchResponse)
+async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche rapide d'annonces (utilise uniquement l'index FAISS)
+    
+    - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
+    - **limit**: Nombre maximum de résultats (défaut: 10)
+    """
+    logger.info(f"🚀 Recherche rapide demandée: '{request.query}' (limit: {request.limit})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Effectuer la recherche rapide
+        logger.info("🚀 Exécution de la recherche rapide...")
+        
+        # Utiliser directement l'index FAISS pour la recherche
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Recherche sémantique dans FAISS
+        results_with_scores = api.vectorstore.similarity_search_with_score(request.query, k=request.limit * 2)
+        
+        # Filtrer et formater les résultats
+        filtered_results = []
+        for doc, score in results_with_scores:
+            if score >= 0.5:  # Seuil de confiance
+                announcement_details = api._get_announcement_details(doc.metadata.get('id'))
+                if announcement_details:
+                    filtered_results.append({
+                        'id': doc.metadata.get('id'),
+                        'title': announcement_details.get('title'),
+                        'description': announcement_details.get('description'),
+                        'price': announcement_details.get('price'),
+                        'location': announcement_details.get('location'),
+                        'match_type': 'semantic',
+                        'score': score
+                    })
+        
+        # Trier par score et limiter
+        filtered_results.sort(key=lambda x: x['score'], reverse=True)
+        final_results = filtered_results[:request.limit]
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in final_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche rapide terminée: {len(final_results)} résultats trouvés")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(final_results),
+            text_results=0,
+            semantic_results=len(final_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche rapide: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche rapide: {str(e)}")
 
 @app.get("/search/{query}", response_model=SearchResponse)
 async def search_announcements_get(
