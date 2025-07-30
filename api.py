@@ -108,6 +108,14 @@ async def startup_event():
         logger.info("✅ Toutes les variables d'environnement sont configurées")
     
     try:
+        # Vérifier et générer l'index si nécessaire
+        from generate_index_on_startup import check_and_generate_index
+        index_ok = check_and_generate_index()
+        
+        if not index_ok:
+            logger.error("❌ Impossible de générer l'index FAISS")
+            raise Exception("Index FAISS non disponible")
+        
         search_api = HybridSearchAPI(os.environ["OPENAI_API_KEY"])
         logger.info("✅ API de recherche initialisée avec succès")
     except Exception as e:
