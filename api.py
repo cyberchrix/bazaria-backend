@@ -473,6 +473,48 @@ async def get_index_content(api: HybridSearchAPI = Depends(get_search_api)):
         logger.error(f"❌ Erreur lors de la récupération du contenu: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du contenu: {str(e)}")
 
+@app.get("/admin/test-scores/{query}")
+async def test_scores(query: str, api: HybridSearchAPI = Depends(get_search_api)):
+    """Teste tous les scores pour une requête sans filtre (admin only)"""
+    try:
+        logger.info(f"🔍 Test des scores pour '{query}'...")
+        
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Recherche sémantique dans FAISS sans filtre
+        results_with_scores = api.vectorstore.similarity_search_with_score(query, k=50)
+        
+        # Formater tous les résultats avec leurs scores
+        all_results = []
+        for doc, score in results_with_scores:
+            metadata = doc.metadata
+            all_results.append({
+                'id': metadata.get('id', 'N/A'),
+                'title': metadata.get('title', 'Titre non disponible'),
+                'description': metadata.get('description', 'Description non disponible'),
+                'price': metadata.get('price', 0.0),
+                'location': metadata.get('location', 'Localisation non disponible'),
+                'score': score
+            })
+        
+        # Trier par score décroissant
+        all_results.sort(key=lambda x: x['score'], reverse=True)
+        
+        logger.info(f"✅ Test des scores terminé: {len(all_results)} résultats")
+        
+        return {
+            "query": query,
+            "total_results": len(all_results),
+            "results": all_results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du test des scores: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du test des scores: {str(e)}")
+
 if __name__ == "__main__":
     # Configuration pour le développement
     uvicorn.run(
