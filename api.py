@@ -245,7 +245,7 @@ async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI
         # Filtrer et formater les résultats
         filtered_results = []
         for doc, score in results_with_scores:
-            if score >= 0.1:  # Seuil de confiance plus permissif pour inclure plus de résultats
+            if score >= 0.35:  # Seuil ajusté pour inclure les villas (score ~0.38)
                 # Utiliser les métadonnées directement de l'index FAISS
                 metadata = doc.metadata
                 if metadata and metadata.get('id'):
