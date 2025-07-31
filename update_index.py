@@ -129,7 +129,16 @@ def update_index():
     print(f"📦 Ajout de {len(new_annonces)} nouvelles annonces...")
     
     new_docs = [
-        Document(page_content=format_annonce(a), metadata={"id": a["$id"]})
+        Document(
+            page_content=format_annonce(a), 
+            metadata={
+                "id": a["$id"],
+                "title": a.get('title', ''),
+                "description": a.get('description', ''),
+                "price": a.get('price', 0.0),
+                "location": a.get('location', '')
+            }
+        )
         for a in new_annonces
     ]
     
