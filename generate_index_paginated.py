@@ -89,7 +89,16 @@ def main():
         return "\n".join(lignes)
 
     docs = [
-        Document(page_content=format_annonce(a), metadata={"id": a["$id"]})
+        Document(
+            page_content=format_annonce(a), 
+            metadata={
+                "id": a["$id"],
+                "title": a.get('title', ''),
+                "description": a.get('description', ''),
+                "price": a.get('price', 0.0),
+                "location": a.get('location', '')
+            }
+        )
         for a in all_annonces
     ]
 
