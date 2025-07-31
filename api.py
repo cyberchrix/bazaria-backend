@@ -246,17 +246,33 @@ async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI
         filtered_results = []
         for doc, score in results_with_scores:
             if score >= 0.2:  # Seuil de confiance ajusté pour les scores sémantiques réels
-                announcement_details = api._get_announcement_details(doc.metadata.get('id'))
-                if announcement_details:
-                    filtered_results.append({
-                        'id': doc.metadata.get('id'),
-                        'title': announcement_details.get('title'),
-                        'description': announcement_details.get('description'),
-                        'price': announcement_details.get('price'),
-                        'location': announcement_details.get('location'),
-                        'match_type': 'semantic',
-                        'score': score
-                    })
+                # Utiliser les métadonnées directement de l'index FAISS
+                metadata = doc.metadata
+                if metadata and metadata.get('id'):
+                    # Essayer de récupérer les détails depuis Appwrite
+                    announcement_details = api._get_announcement_details(metadata.get('id'))
+                    if announcement_details:
+                        filtered_results.append({
+                            'id': metadata.get('id'),
+                            'title': announcement_details.get('title'),
+                            'description': announcement_details.get('description'),
+                            'price': announcement_details.get('price'),
+                            'location': announcement_details.get('location'),
+                            'match_type': 'semantic',
+                            'score': score
+                        })
+                    else:
+                        # Fallback : utiliser les métadonnées de l'index
+                        logger.warning(f"⚠️ Impossible de récupérer les détails pour {metadata.get('id')}, utilisation des métadonnées de l'index")
+                        filtered_results.append({
+                            'id': metadata.get('id'),
+                            'title': metadata.get('title', 'Titre non disponible'),
+                            'description': metadata.get('description', 'Description non disponible'),
+                            'price': metadata.get('price', 0.0),
+                            'location': metadata.get('location', 'Localisation non disponible'),
+                            'match_type': 'semantic',
+                            'score': score
+                        })
         
         # Trier par score et limiter
         filtered_results.sort(key=lambda x: x['score'], reverse=True)
