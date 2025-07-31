@@ -245,7 +245,7 @@ async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI
         # Filtrer et formater les résultats
         filtered_results = []
         for doc, score in results_with_scores:
-            if score >= 0.5:  # Seuil de confiance
+            if score >= 0.2:  # Seuil de confiance ajusté pour les scores sémantiques réels
                 announcement_details = api._get_announcement_details(doc.metadata.get('id'))
                 if announcement_details:
                     filtered_results.append({
