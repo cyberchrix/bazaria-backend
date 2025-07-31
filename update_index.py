@@ -181,9 +181,78 @@ def rebuild_index():
         os.remove(INDEXED_IDS_FILE)
         print("🗑️ Ancienne liste d'IDs supprimée")
     
-    # Relancer l'indexation complète en appelant directement la fonction
-    from generate_index_paginated import main as generate_index
-    generate_index()
+    # Forcer la régénération complète avec toutes les annonces
+    print("📦 Régénération complète avec toutes les annonces...")
+    
+    # Connexion Appwrite
+    client = Client()
+    client.set_endpoint(APPWRITE_ENDPOINT)
+    client.set_project(APPWRITE_PROJECT)
+    client.set_key(APPWRITE_API_KEY)
+    db = Databases(client)
+    
+    # Récupérer toutes les annonces
+    print("🔍 Récupération de toutes les annonces...")
+    all_annonces = []
+    offset = 0
+    limit = 25
+    
+    while True:
+        try:
+            response = db.list_documents(
+                database_id=DATABASE_ID, 
+                collection_id=COLLECTION_ID, 
+                queries=[
+                    Query.limit(limit),
+                    Query.offset(offset)
+                ]
+            )
+            annonces = response['documents']
+            
+            if len(annonces) == 0:
+                break
+            
+            all_annonces.extend(annonces)
+            offset += limit
+            
+            if len(annonces) < limit:
+                break
+                
+        except Exception as e:
+            print(f"❌ Erreur lors de la récupération: {e}")
+            break
+    
+    print(f"📊 Total d'annonces récupérées: {len(all_annonces)}")
+    
+    # Formater les documents avec les métadonnées complètes
+    docs = [
+        Document(
+            page_content=format_annonce(a), 
+            metadata={
+                "id": a["$id"],
+                "title": a.get('title', ''),
+                "description": a.get('description', ''),
+                "price": a.get('price', 0.0),
+                "location": a.get('location', '')
+            }
+        )
+        for a in all_annonces
+    ]
+    
+    # Générer l'index FAISS
+    print(f"📦 Génération des embeddings pour {len(docs)} annonces...")
+    embeddings = OpenAIEmbeddings()
+    vectorstore = FAISS.from_documents(docs, embeddings)
+    
+    # Sauvegarder l'index
+    vectorstore.save_local(INDEX_DIR)
+    print(f"✅ Index sauvegardé dans '{INDEX_DIR}/' avec {len(docs)} annonces")
+    
+    # Afficher les titres des annonces incluses
+    print("\n📋 Titres des annonces incluses:")
+    for i, doc in enumerate(docs, 1):
+        title = doc.metadata.get('title', 'Titre non disponible')
+        print(f"{i:2d}. {title}")
     
     print("✅ Index reconstruit avec succès")
 
