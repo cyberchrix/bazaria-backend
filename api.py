@@ -488,15 +488,19 @@ async def test_scores(query: str, api: HybridSearchAPI = Depends(get_search_api)
         # Formater tous les résultats avec leurs scores
         all_results = []
         for doc, score in results_with_scores:
-            metadata = doc.metadata
-            all_results.append({
-                'id': metadata.get('id', 'N/A'),
-                'title': metadata.get('title', 'Titre non disponible'),
-                'description': metadata.get('description', 'Description non disponible'),
-                'price': metadata.get('price', 0.0),
-                'location': metadata.get('location', 'Localisation non disponible'),
-                'score': score
-            })
+            try:
+                metadata = doc.metadata
+                all_results.append({
+                    'id': metadata.get('id', 'N/A'),
+                    'title': metadata.get('title', 'Titre non disponible'),
+                    'description': metadata.get('description', 'Description non disponible'),
+                    'price': metadata.get('price', 0.0),
+                    'location': metadata.get('location', 'Localisation non disponible'),
+                    'score': float(score) if score is not None else 0.0
+                })
+            except Exception as e:
+                logger.warning(f"⚠️ Erreur lors du traitement du document: {e}")
+                continue
         
         # Trier par score décroissant
         all_results.sort(key=lambda x: x['score'], reverse=True)
