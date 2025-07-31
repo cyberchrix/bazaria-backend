@@ -519,6 +519,35 @@ async def test_scores(query: str, api: HybridSearchAPI = Depends(get_search_api)
         logger.error(f"❌ Erreur lors du test des scores: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du test des scores: {str(e)}")
 
+@app.get("/admin/force-new-format")
+async def force_new_format():
+    """Force l'utilisation du nouveau format (admin only)"""
+    try:
+        logger.info("🔄 Forçage du nouveau format...")
+        
+        # Forcer la mise à jour avec le nouveau format
+        from update_index import update_index
+        result = update_index()
+        
+        if result.get("success"):
+            logger.info(f"✅ Nouveau format appliqué: {result.get('new_announcements', 0)} annonces")
+            return {
+                "message": f"Nouveau format appliqué avec {result.get('new_announcements', 0)} annonces",
+                "status": "success",
+                "new_announcements": result.get('new_announcements', 0)
+            }
+        else:
+            logger.warning(f"⚠️ Échec de l'application du nouveau format: {result.get('message', 'Erreur inconnue')}")
+            return {
+                "message": result.get('message', 'Erreur inconnue'),
+                "status": "error",
+                "new_announcements": 0
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du forçage du nouveau format: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du forçage du nouveau format: {str(e)}")
+
 if __name__ == "__main__":
     # Configuration pour le développement
     uvicorn.run(
