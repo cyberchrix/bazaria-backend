@@ -64,10 +64,6 @@ def update_index():
     client.set_key(APPWRITE_API_KEY)
     db = Databases(client)
     
-    # Charger les IDs déjà indexés
-    indexed_ids = load_indexed_ids()
-    print(f"📊 Annonces déjà indexées: {len(indexed_ids)}")
-    
     # Récupérer toutes les annonces
     print("🔍 Récupération de toutes les annonces...")
     all_annonces = []
@@ -101,34 +97,24 @@ def update_index():
     
     print(f"📊 Total d'annonces récupérées: {len(all_annonces)}")
     
-    # Identifier les nouvelles annonces
-    new_annonces = []
-    for annonce in all_annonces:
-        if annonce['$id'] not in indexed_ids:
-            new_annonces.append(annonce)
+    # Forcer la régénération complète avec le nouveau format
+    print("🔄 Régénération complète avec le nouveau format...")
     
-    print(f"🆕 Nouvelles annonces à indexer: {len(new_annonces)}")
+    # Supprimer l'index existant pour forcer la régénération
+    if os.path.exists(INDEX_DIR):
+        import shutil
+        shutil.rmtree(INDEX_DIR)
+        print("🗑️ Ancien index supprimé")
     
-    if len(new_annonces) == 0:
-        print("✅ Aucune nouvelle annonce à indexer")
-        return {"success": True, "new_announcements": 0, "message": "Aucune nouvelle annonce à indexer"}
+    if os.path.exists(INDEXED_IDS_FILE):
+        os.remove(INDEXED_IDS_FILE)
+        print("🗑️ Ancienne liste d'IDs supprimée")
     
-    # Charger l'index existant ou en créer un nouveau
+    # Créer un nouvel index avec toutes les annonces
     embeddings = OpenAIEmbeddings()
     
-    if os.path.exists(INDEX_DIR):
-        print("📂 Chargement de l'index existant...")
-        vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
-        print(f"✅ Index chargé avec succès")
-    else:
-        print("📂 Création d'un nouvel index...")
-        vectorstore = FAISS.from_documents([], embeddings)
-        print(f"✅ Nouvel index créé")
-    
-    # Ajouter les nouvelles annonces
-    print(f"📦 Ajout de {len(new_annonces)} nouvelles annonces...")
-    
-    new_docs = [
+    # Formater tous les documents avec les métadonnées complètes
+    docs = [
         Document(
             page_content=format_annonce(a), 
             metadata={
@@ -139,32 +125,36 @@ def update_index():
                 "location": a.get('location', '')
             }
         )
-        for a in new_annonces
+        for a in all_annonces
     ]
     
-    vectorstore.add_documents(new_docs)
+    # Générer l'index FAISS
+    print(f"📦 Génération des embeddings pour {len(docs)} annonces...")
+    vectorstore = FAISS.from_documents(docs, embeddings)
     
-    # Sauvegarder l'index mis à jour
+    # Sauvegarder l'index
     vectorstore.save_local(INDEX_DIR)
-    print(f"✅ Index mis à jour et sauvegardé dans '{INDEX_DIR}/'")
+    print(f"✅ Index sauvegardé dans '{INDEX_DIR}/' avec {len(docs)} annonces")
     
     # Mettre à jour la liste des IDs indexés
-    for annonce in new_annonces:
+    indexed_ids = set()
+    for annonce in all_annonces:
         indexed_ids.add(annonce['$id'])
     
     save_indexed_ids(indexed_ids)
     print(f"✅ Liste des IDs indexés mise à jour")
     
-    # Afficher les nouvelles annonces ajoutées
-    print("\n🆕 Nouvelles annonces ajoutées:")
-    for i, annonce in enumerate(new_annonces, 1):
-        print(f"{i:2d}. {annonce.get('title')} (ID: {annonce['$id']})")
+    # Afficher les titres des annonces incluses
+    print("\n📋 Titres des annonces incluses:")
+    for i, doc in enumerate(docs, 1):
+        title = doc.metadata.get('title', 'Titre non disponible')
+        print(f"{i:2d}. {title}")
     
     print(f"\n📊 Statistiques finales:")
     print(f"  - Total d'annonces indexées: {len(indexed_ids)}")
-    print(f"  - Nouvelles annonces ajoutées: {len(new_annonces)}")
+    print(f"  - Nouvelles annonces ajoutées: {len(all_annonces)}")
     
-    return {"success": True, "new_announcements": len(new_annonces), "message": f"{len(new_annonces)} nouvelles annonces indexées"}
+    return {"success": True, "new_announcements": len(all_annonces), "message": f"{len(all_annonces)} annonces indexées avec le nouveau format"}
 
 def rebuild_index():
     """Reconstruit complètement l'index (option de secours)"""
