@@ -420,6 +420,59 @@ async def update_index_endpoint():
         logger.error(f"❌ Erreur lors de la mise à jour: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
 
+@app.get("/admin/index-content")
+async def get_index_content(api: HybridSearchAPI = Depends(get_search_api)):
+    """Liste le contenu de l'index FAISS (admin only)"""
+    try:
+        logger.info("📋 Demande de contenu de l'index...")
+        
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Récupérer le contenu de l'index
+        index_content = []
+        
+        # Parcourir tous les documents de l'index
+        for doc_id, doc in api.vectorstore.index_to_docstore_id.items():
+            try:
+                # Récupérer le document
+                document = api.vectorstore.docstore.search(doc)
+                
+                if document:
+                    # Extraire les métadonnées
+                    metadata = document.metadata
+                    content = document.page_content[:200] + "..." if len(document.page_content) > 200 else document.page_content
+                    
+                    index_content.append({
+                        "id": metadata.get('id', 'N/A'),
+                        "title": metadata.get('title', 'Titre non disponible'),
+                        "description": metadata.get('description', 'Description non disponible'),
+                        "price": metadata.get('price', 0.0),
+                        "location": metadata.get('location', 'Localisation non disponible'),
+                        "content_preview": content,
+                        "doc_id": doc_id
+                    })
+            except Exception as e:
+                logger.warning(f"⚠️ Erreur lors de la récupération du document {doc_id}: {e}")
+                continue
+        
+        # Trier par titre pour une meilleure lisibilité
+        index_content.sort(key=lambda x: x['title'])
+        
+        logger.info(f"✅ Contenu de l'index récupéré: {len(index_content)} documents")
+        
+        return {
+            "total_documents": len(index_content),
+            "index_status": "loaded",
+            "documents": index_content
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de la récupération du contenu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du contenu: {str(e)}")
+
 if __name__ == "__main__":
     # Configuration pour le développement
     uvicorn.run(
