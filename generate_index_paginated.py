@@ -68,9 +68,12 @@ def determine_category(criterias_str, title, description):
         return "Autres"
 
 def format_annonce_improved(a):
-    """Formate l'annonce avec catégories structurées"""
+    """Formate l'annonce avec catégories structurées et concepts sémantiques"""
     # Déterminer la catégorie
     category = determine_category(a.get('criterias', '[]'), a.get('title', ''), a.get('description', ''))
+    
+    # Ajouter des concepts sémantiques selon la catégorie
+    semantic_concepts = get_semantic_concepts(category, a.get('title', ''), a.get('description', ''))
     
     lignes = [
         f"Titre : {a.get('title', '')}",
@@ -85,11 +88,84 @@ def format_annonce_improved(a):
     for crit_line in formatted_criteria:
         lignes.append(f"- {crit_line}")
     
+    # Ajouter les concepts sémantiques
+    if semantic_concepts:
+        lignes.append("")
+        lignes.append("Concepts sémantiques :")
+        for concept in semantic_concepts:
+            lignes.append(f"- {concept}")
+    
     lignes.append("")
     lignes.append("Description :")
     lignes.append(a.get('description', ''))
     
     return "\n".join(lignes)
+
+def get_semantic_concepts(category, title, description):
+    """Génère des concepts sémantiques pour améliorer la recherche"""
+    concepts = []
+    
+    # Concepts pour les véhicules
+    if category == "Véhicules":
+        concepts.extend([
+            "pour se déplacer",
+            "pour me déplacer", 
+            "moyen de transport",
+            "véhicule de transport",
+            "mobilité personnelle",
+            "déplacement quotidien",
+            "transport individuel"
+        ])
+        
+        # Concepts spécifiques selon le type de véhicule
+        title_lower = title.lower()
+        if "voiture" in title_lower or "auto" in title_lower:
+            concepts.extend([
+                "voiture personnelle",
+                "automobile",
+                "véhicule particulier"
+            ])
+        elif "moto" in title_lower or "scooter" in title_lower:
+            concepts.extend([
+                "deux-roues",
+                "moto",
+                "transport urbain"
+            ])
+        elif "vélo" in title_lower:
+            concepts.extend([
+                "vélo",
+                "cyclisme",
+                "transport écologique",
+                "mobilité douce"
+            ])
+    
+    # Concepts pour l'immobilier
+    elif category == "Immobilier":
+        concepts.extend([
+            "lieu de vie",
+            "habitation",
+            "logement",
+            "résidence"
+        ])
+    
+    # Concepts pour le mobilier
+    elif category == "Mobilier":
+        concepts.extend([
+            "aménagement intérieur",
+            "décoration",
+            "confort domestique",
+            "équipement maison"
+        ])
+    
+    # Concepts pour l'électronique
+    elif category == "Électronique":
+        concepts.extend([
+            "technologie",
+            "appareil électronique",
+            "équipement numérique"
+        ])
+    
+    return concepts
 
 def generate_index():
     """Fonction pour générer l'index FAISS - utilisée par l'API de production"""
