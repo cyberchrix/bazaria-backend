@@ -5,6 +5,50 @@
 echo "🚀 DÉMARRAGE DE L'API LOCALE AVEC VRAI INDEX FAISS"
 echo "=================================================="
 
+# Fonction pour arrêter les services existants
+stop_existing_services() {
+    echo "🔍 Vérification des services existants..."
+    
+    # Détecter les processus Python qui exécutent api.py
+    if pgrep -f "python.*api.py" > /dev/null; then
+        echo "⚠️  Processus API détecté, arrêt en cours..."
+        pkill -f "python.*api.py" || true
+        sleep 2
+    fi
+    
+    # Détecter les processus uvicorn sur le port 8000
+    if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
+        echo "⚠️  Service sur le port 8000 détecté, arrêt en cours..."
+        pkill -f "uvicorn.*8000" || true
+        sleep 2
+    fi
+    
+    # Détecter les processus Python sur le port 8000
+    if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
+        echo "⚠️  Processus Python sur le port 8000 détecté, arrêt en cours..."
+        lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Vérification finale
+    if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
+        echo "❌ Impossible de libérer le port 8000"
+        echo "🔧 Arrêt forcé de tous les processus sur le port 8000..."
+        sudo lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+        sleep 3
+    fi
+    
+    # Vérification finale après tous les arrêts
+    if ! lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
+        echo "✅ Port 8000 libéré avec succès"
+    else
+        echo "⚠️  Le port 8000 pourrait encore être utilisé"
+    fi
+}
+
+# Arrêter les services existants
+stop_existing_services
+
 # Vérifier si l'environnement virtuel existe
 if [ ! -d "venv" ]; then
     echo "📦 Création de l'environnement virtuel..."
@@ -26,15 +70,6 @@ if [ -f ".env" ]; then
 else
     echo "⚠️  Fichier .env non trouvé"
     echo "📝 Exécutez ./setup_local_env.sh pour configurer les variables"
-fi
-
-# Vérifier si le port 8000 est libre
-echo "🔍 Vérification du port 8000..."
-if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
-    echo "⚠️  Le port 8000 est déjà utilisé"
-    echo "🔄 Arrêt des processus sur le port 8000..."
-    pkill -f "uvicorn.*8000" || true
-    sleep 2
 fi
 
 # Vérifier les variables d'environnement requises

@@ -12,6 +12,9 @@ from datetime import datetime
 
 # Import de notre système de recherche
 from hybrid_search import HybridSearchAPI
+from appwrite.client import Client
+from appwrite.services.databases import Databases
+from appwrite.query import Query
 
 # Détection de l'environnement
 IS_LOCAL = os.environ.get("ENVIRONMENT", "production") == "local"
@@ -204,19 +207,62 @@ async def search_announcements_keyword(request: SearchRequest, api: HybridSearch
             logger.warning("❌ Requête vide rejetée")
             raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
         
-        # D'abord, essayer la recherche hybride (textuelle + sémantique)
-        logger.info("🔍 Exécution de la recherche hybride...")
-        hybrid_results = api.hybrid_search(request.query, limit=request.limit)
+        # Récupérer toutes les annonces pour la recherche textuelle directe
+        logger.info("📥 Récupération des annonces depuis Appwrite...")
         
-        if "error" in hybrid_results:
-            raise HTTPException(status_code=500, detail=hybrid_results["error"])
+        # Récupérer toutes les annonces avec pagination
+        all_announcements = []
+        offset = 0
+        limit_per_page = 25
         
-        # Si on a des résultats textuels (correspondances exactes), les privilégier
-        text_results = [r for r in hybrid_results["results"] if r["match_type"] == "text"]
-        semantic_results = [r for r in hybrid_results["results"] if r["match_type"] == "semantic"]
+        while True:
+            try:
+                response = api.db.list_documents(
+                    database_id=os.environ.get("APPWRITE_DATABASE_ID"),
+                    collection_id=os.environ.get("APPWRITE_COLLECTION_ID"),
+                    queries=[Query.offset(offset), Query.limit(limit_per_page)]
+                )
+                
+                documents = response.get('documents', [])
+                if not documents:
+                    break
+                
+                all_announcements.extend(documents)
+                offset += limit_per_page
+                
+                if len(documents) < limit_per_page:
+                    break
+                    
+            except Exception as e:
+                logger.error(f"❌ Erreur lors de la récupération des annonces: {e}")
+                break
         
-        # Combiner : textuels en premier, puis sémantiques
-        final_results = text_results + semantic_results[:request.limit - len(text_results)]
+        logger.info(f"📊 Total d'annonces récupérées: {len(all_announcements)}")
+        
+        # Recherche textuelle directe (sans FAISS, sans OpenAI)
+        logger.info("🔍 Exécution de la recherche textuelle directe...")
+        query_lower = request.query.lower()
+        text_results = []
+        
+        for announcement in all_announcements:
+            # Chercher dans le titre et la description
+            title = announcement.get('title', '').lower()
+            description = announcement.get('description', '').lower()
+            
+            # Vérifier si la requête apparaît dans le titre ou la description
+            if query_lower in title or query_lower in description:
+                text_results.append({
+                    'id': announcement.get('$id'),
+                    'title': announcement.get('title'),
+                    'description': announcement.get('description'),
+                    'price': announcement.get('price', 0.0),
+                    'location': announcement.get('location', ''),
+                    'match_type': 'text',
+                    'score': 1.0  # Score parfait pour correspondance textuelle
+                })
+        
+        # Limiter les résultats
+        final_results = text_results[:request.limit]
         
         # Convertir les résultats en format Pydantic
         search_results = []
@@ -232,14 +278,14 @@ async def search_announcements_keyword(request: SearchRequest, api: HybridSearch
             ))
         
         logger.info(f"✅ Recherche par mots-clés terminée: {len(final_results)} résultats trouvés")
-        logger.info(f"   - Correspondances textuelles: {len(text_results)}")
-        logger.info(f"   - Correspondances sémantiques: {len(semantic_results)}")
+        logger.info(f"   - Correspondances textuelles: {len(final_results)}")
+        logger.info(f"   - Correspondances sémantiques: 0")
         
         return SearchResponse(
-            query=hybrid_results["query"],
+            query=request.query,
             total_results=len(final_results),
-            text_results=len(text_results),
-            semantic_results=len(semantic_results),
+            text_results=len(final_results),
+            semantic_results=0,
             results=search_results
         )
         
@@ -336,6 +382,138 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique: {str(e)}")
 
+
+@app.post("/search/category", response_model=SearchResponse)
+async def search_announcements_by_category(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche par catégorie (Véhicules, Immobilier, Électronique, Mobilier, etc.)
+    
+    - **query**: Catégorie ou sous-catégorie (ex: "Véhicules", "Immobilier", "Électronique")
+    - **limit**: Nombre maximum de résultats (défaut: 10)
+    """
+    logger.info(f"🏷️  Recherche par catégorie demandée: '{request.query}' (limit: {request.limit})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Utiliser l'index FAISS pour la recherche par catégorie
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Recherche sémantique dans FAISS avec focus sur la catégorie
+        results_with_scores = api.vectorstore.similarity_search_with_score(request.query, k=request.limit * 3)
+        
+        # Filtrer par catégorie et formater les résultats
+        filtered_results = []
+        category_lower = request.query.lower()
+        
+        for doc, score in results_with_scores:
+            # Vérifier si la catégorie correspond
+            metadata = doc.metadata
+            doc_category = metadata.get('category', '').lower()
+            
+            # Correspondance exacte ou partielle de catégorie
+            if (category_lower in doc_category or 
+                doc_category in category_lower or
+                any(word in doc_category for word in category_lower.split())):
+                
+                if score >= 0.25:  # Seuil plus bas pour la recherche par catégorie
+                    # Récupérer les détails depuis Appwrite
+                    announcement_details = api._get_announcement_details(metadata.get('id'))
+                    if announcement_details:
+                        filtered_results.append({
+                            'id': metadata.get('id'),
+                            'title': announcement_details.get('title'),
+                            'description': announcement_details.get('description'),
+                            'price': announcement_details.get('price'),
+                            'location': announcement_details.get('location'),
+                            'category': metadata.get('category', 'Non classé'),
+                            'match_type': 'category',
+                            'score': score
+                        })
+        
+        # Limiter le nombre de résultats
+        filtered_results = filtered_results[:request.limit]
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in filtered_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche par catégorie terminée: {len(filtered_results)} résultats trouvés")
+        logger.info(f"   - Catégorie recherchée: {request.query}")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(filtered_results),
+            text_results=0,
+            semantic_results=len(filtered_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche par catégorie: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche par catégorie: {str(e)}")
+
+
+@app.get("/categories")
+async def get_categories(api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Liste toutes les catégories disponibles dans l'index
+    """
+    logger.info("📋 Demande de liste des catégories...")
+    
+    try:
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Récupérer toutes les catégories depuis l'index
+        categories_count = {}
+        total_docs = len(api.vectorstore.index_to_docstore_id)
+        
+        # Parcourir tous les documents pour compter les catégories
+        for doc_id in api.vectorstore.index_to_docstore_id.values():
+            doc = api.vectorstore.docstore._dict.get(doc_id)
+            if doc and doc.metadata:
+                category = doc.metadata.get('category', 'Non classé')
+                categories_count[category] = categories_count.get(category, 0) + 1
+        
+        # Trier par nombre d'annonces décroissant
+        sorted_categories = sorted(categories_count.items(), key=lambda x: x[1], reverse=True)
+        
+        logger.info(f"✅ Catégories récupérées: {len(categories_count)} catégories trouvées")
+        
+        return {
+            "total_announcements": total_docs,
+            "categories": [
+                {
+                    "name": category,
+                    "count": count,
+                    "percentage": round((count / total_docs) * 100, 1)
+                }
+                for category, count in sorted_categories
+            ]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de la récupération des catégories: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des catégories: {str(e)}")
 
 
 @app.get("/stats")

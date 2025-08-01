@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
 import os
 from criteria_utils import format_criteria_with_labels
+import json
 
 # ==== Configuration ====
 APPWRITE_ENDPOINT = os.environ.get("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
@@ -18,6 +19,77 @@ COLLECTION_ID = os.environ.get("APPWRITE_COLLECTION_ID")
 
 # Configuration OpenAI
 # OPENAI_API_KEY doit être définie comme variable d'environnement
+
+def get_criteria_labels():
+    """Retourne les libellés des critères pour la détermination de la catégorie."""
+    from criteria_utils import get_criteria_labels as get_criteria_labels_from_utils
+    return get_criteria_labels_from_utils()
+
+def determine_category(criterias_str, title, description):
+    """Détermine la catégorie principale de l'annonce basée sur les critères et le contenu"""
+    try:
+        criterias = json.loads(criterias_str)
+        criteria_labels = get_criteria_labels()
+        
+        # Mots-clés pour identifier les catégories
+        category_keywords = {
+            "Véhicules": ["vélo", "voiture", "moto", "scooter", "véhicule", "automobile", "peugeot", "renault", "citroën", "bmw", "audi", "mercedes"],
+            "Immobilier": ["maison", "appartement", "villa", "studio", "duplex", "location", "bien immobilier", "logement"],
+            "Électronique": ["téléphone", "smartphone", "ordinateur", "laptop", "tablette", "tv", "télévision", "playstation", "xbox", "console"],
+            "Mobilier": ["canapé", "lit", "table", "chaise", "armoire", "bureau", "meuble", "mobilier"],
+            "Sport & Loisirs": ["vélo", "vtt", "bmx", "sport", "loisir", "équipement sportif"],
+            "Décoration": ["tableau", "vase", "miroir", "lampe", "coussin", "déco", "décoration"]
+        }
+        
+        # Analyser le titre et la description
+        content_lower = f"{title} {description}".lower()
+        
+        # Chercher des correspondances de catégories
+        for category, keywords in category_keywords.items():
+            for keyword in keywords:
+                if keyword in content_lower:
+                    return category
+        
+        # Si aucune correspondance, analyser les critères
+        for crit in criterias:
+            crit_id = crit.get('id_criteria')
+            value = crit.get('value', '').lower()
+            label = criteria_labels.get(crit_id, '').lower()
+            
+            # Chercher des mots-clés dans les critères
+            for category, keywords in category_keywords.items():
+                for keyword in keywords:
+                    if keyword in value or keyword in label:
+                        return category
+        
+        return "Autres"
+        
+    except:
+        return "Autres"
+
+def format_annonce_improved(a):
+    """Formate l'annonce avec catégories structurées"""
+    # Déterminer la catégorie
+    category = determine_category(a.get('criterias', '[]'), a.get('title', ''), a.get('description', ''))
+    
+    lignes = [
+        f"Titre : {a.get('title', '')}",
+        f"Catégorie : {category}",
+        f"Localisation : {a.get('location', '')}",
+        f"Prix : {a.get('price', '')} €",
+        "Caractéristiques :"
+    ]
+    
+    # Utiliser les libellés des critères
+    formatted_criteria = format_criteria_with_labels(a.get('criterias', '[]'))
+    for crit_line in formatted_criteria:
+        lignes.append(f"- {crit_line}")
+    
+    lignes.append("")
+    lignes.append("Description :")
+    lignes.append(a.get('description', ''))
+    
+    return "\n".join(lignes)
 
 def generate_index():
     """Fonction pour générer l'index FAISS - utilisée par l'API de production"""
@@ -75,36 +147,27 @@ def main():
 
     print(f"\n📊 Total d'annonces récupérées: {len(all_annonces)}")
 
-    # ==== Formater les documents ====
-    def format_annonce(a):
-        lignes = [
-            f"Titre : {a.get('title', '')}",
-            f"Localisation : {a.get('location', '')}",
-            f"Prix : {a.get('price', '')} €",
-            "Caractéristiques :"
-        ]
-        # Utiliser les libellés des critères
-        formatted_criteria = format_criteria_with_labels(a.get('criterias', '[]'))
-        for crit_line in formatted_criteria:
-            lignes.append(f"- {crit_line}")
-        lignes.append("")
-        lignes.append("Description :")
-        lignes.append(a.get('description', ''))
-        return "\n".join(lignes)
-
-    docs = [
-        Document(
-            page_content=format_annonce(a), 
-            metadata={
-                "id": a["$id"],
-                "title": a.get('title', ''),
-                "description": a.get('description', ''),
-                "price": a.get('price', 0.0),
-                "location": a.get('location', '')
-            }
+    # ==== Formater les documents avec catégories ====
+    docs = []
+    categories_count = {}
+    
+    for a in all_annonces:
+        category = determine_category(a.get('criterias', '[]'), a.get('title', ''), a.get('description', ''))
+        categories_count[category] = categories_count.get(category, 0) + 1
+        
+        docs.append(
+            Document(
+                page_content=format_annonce_improved(a), 
+                metadata={
+                    "id": a["$id"],
+                    "title": a.get('title', ''),
+                    "description": a.get('description', ''),
+                    "price": a.get('price', 0.0),
+                    "location": a.get('location', ''),
+                    "category": category
+                }
+            )
         )
-        for a in all_annonces
-    ]
 
     # ==== Générer l'index FAISS ====
     print(f"\n📦 Génération des embeddings pour {len(docs)} annonces...")
@@ -119,15 +182,20 @@ def main():
     vectorstore.save_local(INDEX_DIR)
     print(f"✅ Index sauvegardé dans '{INDEX_DIR}/' avec {len(docs)} annonces")
 
-    # ==== Vérification ====
+    # ==== Vérification avec catégories ====
     print("\n🔍 Vérification de l'index généré:")
     print(f"📊 Nombre d'annonces dans l'index: {len(docs)}")
-    print("📋 Titres des annonces incluses:")
+    print("📋 Répartition par catégories:")
+    for category, count in sorted(categories_count.items()):
+        print(f"  - {category}: {count} annonces")
+    
+    print("\n📋 Titres des annonces incluses:")
     for i, doc in enumerate(docs, 1):
         content = doc.page_content
         title_line = content.split('\n')[0]
         title = title_line.replace('Titre : ', '')
-        print(f"{i:2d}. {title}")
+        category = doc.metadata.get('category', 'Non classé')
+        print(f"{i:2d}. [{category}] {title}")
 
     # Chercher spécifiquement une villa
     print("\n🏠 Recherche d'annonces contenant 'villa':")
@@ -138,7 +206,8 @@ def main():
             villa_count += 1
             title_line = doc.page_content.split('\n')[0]
             title = title_line.replace('Titre : ', '')
-            print(f"  🏠 Trouvé: {title}")
+            category = doc.metadata.get('category', 'Non classé')
+            print(f"  🏠 Trouvé: [{category}] {title}")
 
     print(f"🏠 Total d'annonces contenant 'villa': {villa_count}")
 
