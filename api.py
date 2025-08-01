@@ -389,8 +389,8 @@ async def rebuild_index_endpoint():
     try:
         logger.info("🔄 Reconstruction forcée de l'index demandée...")
         
-        from update_index import rebuild_index
-        rebuild_index()
+        from generate_index_paginated import generate_index
+        generate_index()
         
         logger.info("✅ Index reconstruit avec succès")
         return {"message": "Index reconstruit avec succès", "status": "success"}
@@ -405,23 +405,15 @@ async def update_index_endpoint():
     try:
         logger.info("🔄 Mise à jour de l'index demandée...")
         
-        from update_index import update_index
-        result = update_index()
+        from generate_index_paginated import generate_index
+        generate_index()
         
-        if result.get("success"):
-            logger.info(f"✅ Index mis à jour: {result.get('new_announcements', 0)} nouvelles annonces")
-            return {
-                "message": f"Index mis à jour avec {result.get('new_announcements', 0)} nouvelles annonces",
-                "status": "success",
-                "new_announcements": result.get('new_announcements', 0)
-            }
-        else:
-            logger.warning(f"⚠️ Mise à jour partielle: {result.get('message', 'Erreur inconnue')}")
-            return {
-                "message": result.get('message', 'Erreur inconnue'),
-                "status": "partial",
-                "new_announcements": result.get('new_announcements', 0)
-            }
+        logger.info("✅ Index mis à jour avec succès")
+        return {
+            "message": "Index mis à jour avec succès",
+            "status": "success",
+            "new_announcements": 0
+        }
         
     except Exception as e:
         logger.error(f"❌ Erreur lors de la mise à jour: {str(e)}")
