@@ -211,7 +211,7 @@ async def search_announcements_fast(request: SearchRequest, api: Optional[object
         # Filtrer et formater les résultats
         filtered_results = []
         for doc, score in results_with_scores:
-            if score >= 0.05:  # Seuil extrêmement bas pour diagnostiquer
+            if score >= 0.01:  # Seuil minimal pour voir tous les scores
                 # Utiliser les métadonnées directement de l'index FAISS
                 metadata = doc.metadata
                 if metadata and metadata.get('id'):
