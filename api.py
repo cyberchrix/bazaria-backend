@@ -109,12 +109,18 @@ async def startup_event():
     
     try:
         # Vérifier et générer l'index si nécessaire
-        from generate_index_on_startup import check_and_generate_index
-        index_ok = check_and_generate_index()
+        from generate_index_paginated import generate_index
+        import os
         
-        if not index_ok:
-            logger.error("❌ Impossible de générer l'index FAISS")
-            raise Exception("Index FAISS non disponible")
+        # Vérifier si l'index existe
+        if not os.path.exists("index_bazaria"):
+            logger.info("🔍 Index FAISS non trouvé, génération...")
+            generate_index()
+            logger.info("✅ Index FAISS généré avec succès")
+        else:
+            logger.info("✅ Index FAISS trouvé")
+        
+        index_ok = True
         
         search_api = HybridSearchAPI(os.environ["OPENAI_API_KEY"])
         logger.info("✅ API de recherche initialisée avec succès")
