@@ -83,6 +83,8 @@ def get_search_api():
 @app.on_event("startup")
 async def startup_event():
     """Initialisation au démarrage"""
+    import os
+    
     global search_api
     logger.info("🚀 Démarrage de l'API Bazaria Search...")
     
@@ -110,7 +112,6 @@ async def startup_event():
     try:
         # Vérifier et générer l'index si nécessaire
         from generate_index_paginated import generate_index
-        import os
         
         # Vérifier si l'index existe
         if not os.path.exists("index_bazaria"):
