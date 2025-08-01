@@ -98,4 +98,4 @@ python auto_update_index.py --rebuild
 - `"Samsung"` → Trouve les Samsung Galaxy
 - `"Vélo électrique"` → Trouve les vélos électriques
 - `"Très bon état"` → Trouve les objets en bon état
-- `"Marque: Trek"` → Trouve les vélos Trek 
+- `"Marque: Trek"` → Trouve les vélos Trek # Force restart
