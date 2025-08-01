@@ -102,3 +102,6 @@ python auto_update_index.py --rebuild
 
 
 <!-- Force restart: 2025-08-01 19:33:19 -->
+
+
+<!-- Force complete rebuild: 2025-08-01 19:56:44 -->
