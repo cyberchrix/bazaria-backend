@@ -189,161 +189,15 @@ async def health_check():
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur de santé: {str(e)}")
 
-@app.post("/search", response_model=SearchResponse)
-async def search_announcements(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+@app.post("/search/keyword", response_model=SearchResponse)
+async def search_announcements_keyword(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
     """
-    Recherche d'annonces avec système hybride (complet mais plus lent)
+    Recherche par mots-clés exacts (pour termes précis)
     
-    - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
+    - **query**: Mot-clé précis (ex: "villa", "Samsung", "Vélo électrique")
     - **limit**: Nombre maximum de résultats (défaut: 10)
     """
-    logger.info(f"🔍 Recherche hybride demandée: '{request.query}' (limit: {request.limit})")
-    
-    try:
-        if not request.query.strip():
-            logger.warning("❌ Requête vide rejetée")
-            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
-        
-        # Effectuer la recherche
-        logger.info("🔍 Exécution de la recherche hybride...")
-        results = api.hybrid_search(request.query, limit=request.limit)
-        
-        if "error" in results:
-            logger.error(f"❌ Erreur lors de la recherche: {results['error']}")
-            raise HTTPException(status_code=500, detail=results["error"])
-        
-        # Convertir les résultats en format Pydantic
-        search_results = []
-        for result in results["results"]:
-            search_results.append(SearchResult(
-                id=result["id"],
-                title=result["title"],
-                description=result["description"],
-                price=result["price"],
-                location=result["location"],
-                match_type=result["match_type"],
-                score=result["score"]
-            ))
-        
-        logger.info(f"✅ Recherche hybride terminée: {results['total_results']} résultats trouvés")
-        logger.info(f"   - Correspondances textuelles: {results['text_results']}")
-        logger.info(f"   - Correspondances sémantiques: {results['semantic_results']}")
-        
-        return SearchResponse(
-            query=results["query"],
-            total_results=results["total_results"],
-            text_results=results["text_results"],
-            semantic_results=results["semantic_results"],
-            results=search_results
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Erreur inattendue lors de la recherche: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
-
-@app.post("/search/fast", response_model=SearchResponse)
-async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
-    """
-    Recherche rapide d'annonces (utilise uniquement l'index FAISS)
-    
-    - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
-    - **limit**: Nombre maximum de résultats (défaut: 10)
-    """
-    logger.info(f"🚀 Recherche rapide demandée: '{request.query}' (limit: {request.limit})")
-    
-    try:
-        if not request.query.strip():
-            logger.warning("❌ Requête vide rejetée")
-            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
-        
-        # Effectuer la recherche rapide
-        logger.info("🚀 Exécution de la recherche rapide...")
-        
-        # Utiliser directement l'index FAISS pour la recherche
-        if not api.vectorstore:
-            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
-        
-        # Recherche sémantique dans FAISS
-        results_with_scores = api.vectorstore.similarity_search_with_score(request.query, k=request.limit * 2)
-        
-        # Filtrer et formater les résultats
-        filtered_results = []
-        for doc, score in results_with_scores:
-            if score >= 0.25:  # Seuil minimal pour inclure les "Villa"
-                # Utiliser les métadonnées directement de l'index FAISS
-                metadata = doc.metadata
-                if metadata and metadata.get('id'):
-                    # Essayer de récupérer les détails depuis Appwrite
-                    announcement_details = api._get_announcement_details(metadata.get('id'))
-                    if announcement_details:
-                        filtered_results.append({
-                            'id': metadata.get('id'),
-                            'title': announcement_details.get('title'),
-                            'description': announcement_details.get('description'),
-                            'price': announcement_details.get('price'),
-                            'location': announcement_details.get('location'),
-                            'match_type': 'semantic',
-                            'score': score
-                        })
-                    else:
-                        # Fallback : utiliser les métadonnées de l'index
-                        logger.warning(f"⚠️ Impossible de récupérer les détails pour {metadata.get('id')}, utilisation des métadonnées de l'index")
-                        filtered_results.append({
-                            'id': metadata.get('id'),
-                            'title': metadata.get('title', 'Titre non disponible'),
-                            'description': metadata.get('description', 'Description non disponible'),
-                            'price': metadata.get('price', 0.0),
-                            'location': metadata.get('location', 'Localisation non disponible'),
-                            'match_type': 'semantic',
-                            'score': score
-                        })
-        
-        # Trier par score et limiter
-        filtered_results.sort(key=lambda x: x['score'], reverse=True)
-        final_results = filtered_results[:request.limit]
-        
-        # Convertir les résultats en format Pydantic
-        search_results = []
-        for result in final_results:
-            search_results.append(SearchResult(
-                id=result["id"],
-                title=result["title"],
-                description=result["description"],
-                price=result["price"],
-                location=result["location"],
-                match_type=result["match_type"],
-                score=result["score"]
-            ))
-        
-        logger.info(f"✅ Recherche rapide terminée: {len(final_results)} résultats trouvés")
-        
-        return SearchResponse(
-            query=request.query,
-            total_results=len(final_results),
-            text_results=0,
-            semantic_results=len(final_results),
-            results=search_results
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Erreur inattendue lors de la recherche rapide: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche rapide: {str(e)}")
-
-@app.post("/search/smart", response_model=SearchResponse)
-async def search_announcements_smart(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
-    """
-    Recherche intelligente qui privilégie les correspondances exactes
-    
-    - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
-    - **limit**: Nombre maximum de résultats (défaut: 10)
-    """
-    logger.info(f"🧠 Recherche intelligente demandée: '{request.query}' (limit: {request.limit})")
+    logger.info(f"🔍 Recherche par mots-clés demandée: '{request.query}' (limit: {request.limit})")
     
     try:
         if not request.query.strip():
@@ -377,7 +231,7 @@ async def search_announcements_smart(request: SearchRequest, api: HybridSearchAP
                 score=result["score"]
             ))
         
-        logger.info(f"✅ Recherche intelligente terminée: {len(final_results)} résultats trouvés")
+        logger.info(f"✅ Recherche par mots-clés terminée: {len(final_results)} résultats trouvés")
         logger.info(f"   - Correspondances textuelles: {len(text_results)}")
         logger.info(f"   - Correspondances sémantiques: {len(semantic_results)}")
         
@@ -392,9 +246,9 @@ async def search_announcements_smart(request: SearchRequest, api: HybridSearchAP
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Erreur inattendue lors de la recherche intelligente: {str(e)}")
+        logger.error(f"❌ Erreur inattendue lors de la recherche par mots-clés: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche intelligente: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche par mots-clés: {str(e)}")
 
 @app.post("/search/semantic", response_model=SearchResponse)
 async def search_announcements_semantic(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
@@ -449,13 +303,12 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
                             'score': score
                         })
         
-        # Trier par score et limiter
-        filtered_results.sort(key=lambda x: x['score'], reverse=True)
-        final_results = filtered_results[:request.limit]
+        # Limiter le nombre de résultats
+        filtered_results = filtered_results[:request.limit]
         
         # Convertir les résultats en format Pydantic
         search_results = []
-        for result in final_results:
+        for result in filtered_results:
             search_results.append(SearchResult(
                 id=result["id"],
                 title=result["title"],
@@ -466,13 +319,13 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
                 score=result["score"]
             ))
         
-        logger.info(f"✅ Recherche sémantique terminée: {len(final_results)} résultats trouvés")
+        logger.info(f"✅ Recherche sémantique terminée: {len(filtered_results)} résultats trouvés")
         
         return SearchResponse(
             query=request.query,
-            total_results=len(final_results),
-            text_results=0,
-            semantic_results=len(final_results),
+            total_results=len(filtered_results),
+            text_results=0,  # Pas de résultats textuels en recherche sémantique pure
+            semantic_results=len(filtered_results),
             results=search_results
         )
         
@@ -483,53 +336,7 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique: {str(e)}")
 
-@app.get("/search/{query}", response_model=SearchResponse)
-async def search_announcements_get(
-    query: str, 
-    limit: Optional[int] = 10,
-    api: HybridSearchAPI = Depends(get_search_api)
-):
-    """
-    Recherche d'annonces via GET (pour tests rapides)
-    
-    - **query**: Terme de recherche dans l'URL
-    - **limit**: Nombre maximum de résultats (paramètre query)
-    """
-    try:
-        if not query.strip():
-            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
-        
-        # Effectuer la recherche
-        results = api.hybrid_search(query, limit=limit)
-        
-        if "error" in results:
-            raise HTTPException(status_code=500, detail=results["error"])
-        
-        # Convertir les résultats en format Pydantic
-        search_results = []
-        for result in results["results"]:
-            search_results.append(SearchResult(
-                id=result["id"],
-                title=result["title"],
-                description=result["description"],
-                price=result["price"],
-                location=result["location"],
-                match_type=result["match_type"],
-                score=result["score"]
-            ))
-        
-        return SearchResponse(
-            query=results["query"],
-            total_results=results["total_results"],
-            text_results=results["text_results"],
-            semantic_results=results["semantic_results"],
-            results=search_results
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
+
 
 @app.get("/stats")
 async def get_stats(api: HybridSearchAPI = Depends(get_search_api)):
