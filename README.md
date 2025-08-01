@@ -99,3 +99,6 @@ python auto_update_index.py --rebuild
 - `"Vélo électrique"` → Trouve les vélos électriques
 - `"Très bon état"` → Trouve les objets en bon état
 - `"Marque: Trek"` → Trouve les vélos Trek # Force restart
+
+
+<!-- Force restart: 2025-08-01 19:33:19 -->
