@@ -321,7 +321,7 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
         # Filtrer et formater les résultats
         filtered_results = []
         for doc, score in results_with_scores:
-            if score <= 0.4:  # Seuil pour la recherche sémantique (plus le score est faible, plus c'est pertinent)
+            if score >= 1.0:  # Seuil pour la recherche sémantique (plus le score est élevé, plus c'est pertinent avec le nouveau modèle)
                 # Utiliser les métadonnées directement de l'index FAISS
                 metadata = doc.metadata
                 if metadata and metadata.get('id'):
