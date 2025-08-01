@@ -111,7 +111,11 @@ def update_index():
         print("🗑️ Ancienne liste d'IDs supprimée")
     
     # Créer un nouvel index avec toutes les annonces
-    embeddings = OpenAIEmbeddings()
+    # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-large",  # Modèle plus avancé
+        dimensions=3072  # Plus de dimensions pour une meilleure représentation
+    )
     
     # Formater tous les documents avec les métadonnées complètes
     docs = [

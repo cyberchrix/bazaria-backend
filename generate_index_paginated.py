@@ -247,7 +247,11 @@ def main():
 
     # ==== Générer l'index FAISS ====
     print(f"\n📦 Génération des embeddings pour {len(docs)} annonces...")
-    embeddings = OpenAIEmbeddings()
+    # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-large",  # Modèle plus avancé
+        dimensions=3072  # Plus de dimensions pour une meilleure représentation
+    )
     vectorstore = FAISS.from_documents(docs, embeddings)
 
     # ==== Sauvegarder l'index ====

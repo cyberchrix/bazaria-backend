@@ -54,7 +54,11 @@ class HybridSearchAPI:
                 raise FileNotFoundError(f"Index non trouvé dans '{INDEX_DIR}'")
             
             logger.info("📦 Chargement de l'index FAISS...")
-            embeddings = OpenAIEmbeddings()
+            # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
+            embeddings = OpenAIEmbeddings(
+                model="text-embedding-3-large",  # Modèle plus avancé
+                dimensions=3072  # Plus de dimensions pour une meilleure représentation
+            )
             self.vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
             logger.info("✅ Index FAISS chargé avec succès")
         except Exception as e:
