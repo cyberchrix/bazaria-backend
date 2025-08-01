@@ -53,7 +53,8 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
     echo "📝 Exécutez ./setup_local_env.sh pour configurer les variables"
     echo ""
     echo "🔄 Démarrage en mode simulation..."
-    python api_local_prod.py
+    export ENVIRONMENT=local
+    python api.py
 else
     echo "✅ Toutes les variables d'environnement sont configurées"
     echo ""
@@ -65,6 +66,7 @@ else
     echo "⏹️  Pour arrêter: Ctrl+C"
     echo ""
     
-    # Démarrer l'API avec vrai index
-    python api_local_real.py
+    # Démarrer l'API en mode local
+    export ENVIRONMENT=local
+    python api.py
 fi 

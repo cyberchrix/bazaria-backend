@@ -1,4 +1,4 @@
-# api.py
+# api.py - API unifiée pour local et production
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,15 +13,25 @@ from datetime import datetime
 # Import de notre système de recherche
 from hybrid_search import HybridSearchAPI
 
+# Détection de l'environnement
+IS_LOCAL = os.environ.get("ENVIRONMENT", "production") == "local"
+
 # Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('api.log')
-    ]
-)
+if IS_LOCAL:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('api.log')
+        ]
+    )
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -46,6 +56,7 @@ class SearchResponse(BaseModel):
     total_results: int
     text_results: int
     semantic_results: int
+    
     results: List[SearchResult]
 
 class HealthResponse(BaseModel):
@@ -54,8 +65,8 @@ class HealthResponse(BaseModel):
 
 # Initialisation de l'API
 app = FastAPI(
-    title="Bazaria Search API",
-    description="API de recherche hybride pour les annonces Bazaria",
+    title="Bazaria Search API" + (" - Local" if IS_LOCAL else ""),
+    description="API de recherche hybride pour les annonces Bazaria" + (" (Mode local)" if IS_LOCAL else ""),
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -86,7 +97,8 @@ async def startup_event():
     import os
     
     global search_api
-    logger.info("🚀 Démarrage de l'API Bazaria Search...")
+    env_type = "LOCAL" if IS_LOCAL else "PRODUCTION"
+    logger.info(f"🚀 Démarrage de l'API Bazaria Search ({env_type})...")
     
     # Vérifier les variables d'environnement
     required_vars = [
@@ -106,6 +118,8 @@ async def startup_event():
     
     if missing_vars:
         logger.error(f"❌ Variables manquantes: {missing_vars}")
+        if IS_LOCAL:
+            logger.warning("⚠️ Mode local avec variables manquantes - certaines fonctionnalités peuvent être limitées")
     else:
         logger.info("✅ Toutes les variables d'environnement sont configurées")
     
@@ -128,14 +142,18 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Erreur lors de l'initialisation de l'API: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise
+        if IS_LOCAL:
+            logger.warning("⚠️ Mode local - l'API continuera avec des fonctionnalités limitées")
+        else:
+            raise
 
 @app.get("/", response_model=HealthResponse)
 async def root():
     """Point d'entrée principal"""
+    env_type = "LOCAL" if IS_LOCAL else "PRODUCTION"
     return HealthResponse(
         status="ok",
-        message="Bazaria Search API - Utilisez /docs pour la documentation"
+        message=f"Bazaria Search API ({env_type}) - Utilisez /docs pour la documentation"
     )
 
 @app.get("/health", response_model=HealthResponse)
@@ -154,15 +172,17 @@ async def health_check():
         
         if api.vectorstore and api.db:
             logger.info("✅ API entièrement opérationnelle")
+            env_type = "LOCAL" if IS_LOCAL else "PRODUCTION"
             return HealthResponse(
                 status="healthy",
-                message="API opérationnelle - Index FAISS et Appwrite connectés"
+                message=f"API {env_type} opérationnelle - Index FAISS et Appwrite connectés"
             )
         else:
             logger.warning("⚠️ API partiellement opérationnelle")
+            env_type = "LOCAL" if IS_LOCAL else "PRODUCTION"
             return HealthResponse(
                 status="warning",
-                message="API partiellement opérationnelle - Vérifiez les connexions"
+                message=f"API {env_type} partiellement opérationnelle - Vérifiez les connexions"
             )
     except Exception as e:
         logger.error(f"❌ Erreur lors du health check: {str(e)}")
@@ -252,7 +272,7 @@ async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI
         # Filtrer et formater les résultats
         filtered_results = []
         for doc, score in results_with_scores:
-            if score >= 0.01:  # Seuil minimal pour voir tous les scores
+            if score >= 0.25:  # Seuil minimal pour inclure les "Villa"
                 # Utiliser les métadonnées directement de l'index FAISS
                 metadata = doc.metadata
                 if metadata and metadata.get('id'):
@@ -314,6 +334,154 @@ async def search_announcements_fast(request: SearchRequest, api: HybridSearchAPI
         logger.error(f"❌ Erreur inattendue lors de la recherche rapide: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche rapide: {str(e)}")
+
+@app.post("/search/smart", response_model=SearchResponse)
+async def search_announcements_smart(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche intelligente qui privilégie les correspondances exactes
+    
+    - **query**: Terme de recherche (ex: "villa", "Samsung", "Vélo électrique")
+    - **limit**: Nombre maximum de résultats (défaut: 10)
+    """
+    logger.info(f"🧠 Recherche intelligente demandée: '{request.query}' (limit: {request.limit})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # D'abord, essayer la recherche hybride (textuelle + sémantique)
+        logger.info("🔍 Exécution de la recherche hybride...")
+        hybrid_results = api.hybrid_search(request.query, limit=request.limit)
+        
+        if "error" in hybrid_results:
+            raise HTTPException(status_code=500, detail=hybrid_results["error"])
+        
+        # Si on a des résultats textuels (correspondances exactes), les privilégier
+        text_results = [r for r in hybrid_results["results"] if r["match_type"] == "text"]
+        semantic_results = [r for r in hybrid_results["results"] if r["match_type"] == "semantic"]
+        
+        # Combiner : textuels en premier, puis sémantiques
+        final_results = text_results + semantic_results[:request.limit - len(text_results)]
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in final_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche intelligente terminée: {len(final_results)} résultats trouvés")
+        logger.info(f"   - Correspondances textuelles: {len(text_results)}")
+        logger.info(f"   - Correspondances sémantiques: {len(semantic_results)}")
+        
+        return SearchResponse(
+            query=hybrid_results["query"],
+            total_results=len(final_results),
+            text_results=len(text_results),
+            semantic_results=len(semantic_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche intelligente: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche intelligente: {str(e)}")
+
+@app.post("/search/semantic", response_model=SearchResponse)
+async def search_announcements_semantic(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche sémantique pure (pour concepts, intentions, synonymes)
+    
+    - **query**: Concept ou intention (ex: "pour me déplacer", "moderne et élégant")
+    - **limit**: Nombre maximum de résultats (défaut: 10)
+    """
+    logger.info(f"🧠 Recherche sémantique demandée: '{request.query}' (limit: {request.limit})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Utiliser directement l'index FAISS pour la recherche sémantique
+        if not api.vectorstore:
+            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
+        
+        # Recherche sémantique dans FAISS
+        results_with_scores = api.vectorstore.similarity_search_with_score(request.query, k=request.limit * 2)
+        
+        # Filtrer et formater les résultats
+        filtered_results = []
+        for doc, score in results_with_scores:
+            if score >= 0.3:  # Seuil pour la recherche sémantique
+                # Utiliser les métadonnées directement de l'index FAISS
+                metadata = doc.metadata
+                if metadata and metadata.get('id'):
+                    # Essayer de récupérer les détails depuis Appwrite
+                    announcement_details = api._get_announcement_details(metadata.get('id'))
+                    if announcement_details:
+                        filtered_results.append({
+                            'id': metadata.get('id'),
+                            'title': announcement_details.get('title'),
+                            'description': announcement_details.get('description'),
+                            'price': announcement_details.get('price'),
+                            'location': announcement_details.get('location'),
+                            'match_type': 'semantic',
+                            'score': score
+                        })
+                    else:
+                        # Fallback : utiliser les métadonnées de l'index
+                        filtered_results.append({
+                            'id': metadata.get('id'),
+                            'title': metadata.get('title', 'Titre non disponible'),
+                            'description': metadata.get('description', 'Description non disponible'),
+                            'price': metadata.get('price', 0.0),
+                            'location': metadata.get('location', 'Localisation non disponible'),
+                            'match_type': 'semantic',
+                            'score': score
+                        })
+        
+        # Trier par score et limiter
+        filtered_results.sort(key=lambda x: x['score'], reverse=True)
+        final_results = filtered_results[:request.limit]
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in final_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche sémantique terminée: {len(final_results)} résultats trouvés")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(final_results),
+            text_results=0,
+            semantic_results=len(final_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche sémantique: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique: {str(e)}")
 
 @app.get("/search/{query}", response_model=SearchResponse)
 async def search_announcements_get(
@@ -548,7 +716,13 @@ async def force_new_format():
         raise HTTPException(status_code=500, detail=f"Erreur lors du forçage du nouveau format: {str(e)}")
 
 if __name__ == "__main__":
-    # Configuration pour le développement
+    # Configuration pour le développement local
+    print("🚀 Démarrage de l'API en mode LOCAL")
+    print("📍 URL: http://localhost:8000")
+    print("📚 Documentation: http://localhost:8000/docs")
+    print("⏹️  Pour arrêter: Ctrl+C")
+    print()
+    
     uvicorn.run(
         "api:app",
         host="0.0.0.0",
