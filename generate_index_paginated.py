@@ -19,6 +19,10 @@ COLLECTION_ID = os.environ.get("APPWRITE_COLLECTION_ID")
 # Configuration OpenAI
 # OPENAI_API_KEY doit être définie comme variable d'environnement
 
+def generate_index():
+    """Fonction pour générer l'index FAISS - utilisée par l'API de production"""
+    main()
+
 def main():
     """Fonction principale pour générer l'index"""
     
