@@ -50,6 +50,12 @@ class AdvancedSearchRequest(BaseModel):
     limit: Optional[int] = 15
     min_score: Optional[float] = 0.7
 
+class FilteredSearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 10
+    max_price: Optional[float] = None
+    min_price: Optional[float] = None
+
 class SearchResult(BaseModel):
     id: str
     title: str
@@ -405,6 +411,62 @@ async def search_announcements_semantic_advanced(request: AdvancedSearchRequest,
         logger.error(f"❌ Erreur inattendue lors de la recherche sémantique avancée: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique avancée: {str(e)}")
+
+
+@app.post("/search/filtered", response_model=SearchResponse)
+async def search_announcements_filtered(request: FilteredSearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche avec filtrage de prix (idéal pour "téléphone à moins de 100 euros")
+    
+    - **query**: Requête de recherche (ex: "téléphone", "vélo électrique")
+    - **limit**: Nombre maximum de résultats (défaut: 10)
+    - **max_price**: Prix maximum (ex: 100 pour "moins de 100 euros")
+    - **min_price**: Prix minimum (ex: 50 pour "entre 50 et 100 euros")
+    """
+    logger.info(f"🔍 Recherche avec filtrage demandée: '{request.query}' (max_price: {request.max_price}, min_price: {request.min_price})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Utiliser notre fonction de recherche avec filtrage
+        filtered_results = api.search_with_price_filter(
+            request.query,
+            max_price=request.max_price,
+            min_price=request.min_price,
+            limit=request.limit
+        )
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in filtered_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche avec filtrage terminée: {len(filtered_results)} résultats trouvés")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(filtered_results),
+            text_results=len([r for r in filtered_results if r["match_type"] == "text"]),
+            semantic_results=len([r for r in filtered_results if r["match_type"] == "semantic"]),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche avec filtrage: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche avec filtrage: {str(e)}")
 
 
 @app.post("/search/category", response_model=SearchResponse)

@@ -509,6 +509,85 @@ class HybridSearchAPI:
             logger.error(f"⚠️ Erreur lors de la recherche sémantique avancée: {e}")
             return []
     
+    def search_with_price_filter(self, query: str, max_price: float = None, min_price: float = None, limit: int = 10) -> List[Dict]:
+        """Recherche avec filtrage de prix"""
+        logger.info(f"🔍 Recherche avec filtrage de prix: '{query}' (max: {max_price}, min: {min_price})")
+        
+        # 1. Recherche sémantique pour comprendre l'intention
+        semantic_results = self.semantic_search(query, min_score=0.6)
+        logger.info(f"🧠 Résultats sémantiques: {len(semantic_results)}")
+        
+        # 2. Recherche textuelle pour les correspondances exactes
+        try:
+            all_announcements = []
+            offset = 0
+            page_limit = 25
+            
+            while True:
+                response = self.db.list_documents(
+                    database_id=DATABASE_ID, 
+                    collection_id=COLLECTION_ID, 
+                    queries=[
+                        Query.limit(page_limit),
+                        Query.offset(offset)
+                    ]
+                )
+                announcements = response['documents']
+                
+                if len(announcements) == 0:
+                    break
+                
+                all_announcements.extend(announcements)
+                offset += page_limit
+                
+                if len(announcements) < page_limit:
+                    break
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération annonces: {e}")
+            return []
+        
+        # Recherche textuelle
+        text_results = self.text_search(query, all_announcements)
+        logger.info(f"📝 Résultats textuels: {len(text_results)}")
+        
+        # 3. Combiner et filtrer par prix
+        combined_results = []
+        seen_ids = set()
+        
+        # Ajouter résultats textuels
+        for result in text_results:
+            if result['id'] not in seen_ids:
+                combined_results.append(result)
+                seen_ids.add(result['id'])
+        
+        # Ajouter résultats sémantiques
+        for result in semantic_results:
+            if result['id'] not in seen_ids:
+                combined_results.append(result)
+                seen_ids.add(result['id'])
+        
+        # 4. Filtrer par prix
+        filtered_results = []
+        for result in combined_results:
+            price = result.get('price', 0)
+            
+            # Vérifier les contraintes de prix
+            if max_price is not None and price > max_price:
+                continue
+            if min_price is not None and price < min_price:
+                continue
+                
+            filtered_results.append(result)
+        
+        # 5. Trier par score et limiter
+        filtered_results.sort(key=lambda x: x['score'], reverse=True)
+        filtered_results = filtered_results[:limit]
+        
+        logger.info(f"✅ Recherche avec filtrage: {len(filtered_results)} résultats (sur {len(combined_results)} total)")
+        
+        return filtered_results
+    
     def _get_announcement_details(self, announcement_id: str) -> Dict[str, Any]:
         """Récupère les détails complets d'une annonce depuis Appwrite"""
         if not self.db or not announcement_id:
