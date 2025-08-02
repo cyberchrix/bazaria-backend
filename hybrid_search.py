@@ -138,9 +138,9 @@ class EmbeddingCache:
         }
 
 class ResultCache:
-    """Cache pour les résultats de recherche complets"""
+    """Cache pour les résultats de recherche complets avec TTL dynamique"""
     
-    def __init__(self, cache_file="result_cache.json", duration_hours=1):
+    def __init__(self, cache_file="result_cache.json", duration_hours=2):  # Augmenté à 2h
         # Utiliser le répertoire persistant sur Render
         if os.path.exists("/opt/render/project/src/data"):
             self.cache_file = os.path.join("/opt/render/project/src/data", cache_file)
@@ -387,7 +387,7 @@ class HybridSearchAPI:
                 logger.info(f"✅ Cache hit - embedding trouvé pour: '{query}'")
                 # Utiliser l'embedding en cache pour la recherche FAISS
                 results_with_scores = self.vectorstore.similarity_search_by_vector(
-                    cached_embedding, k=10
+                    cached_embedding, k=20  # Plus de résultats pour un meilleur tri
                 )
                 logger.info(f"🔍 Recherche FAISS avec embedding en cache: {len(results_with_scores)} résultats")
             else:
@@ -400,17 +400,20 @@ class HybridSearchAPI:
                 
                 # Recherche avec l'embedding calculé
                 results_with_scores = self.vectorstore.similarity_search_by_vector(
-                    embedding, k=10
+                    embedding, k=20  # Plus de résultats pour un meilleur tri
                 )
                 logger.info(f"🔍 Recherche FAISS avec nouvel embedding: {len(results_with_scores)} résultats")
             
             # 3. Formater les résultats
             logger.info(f"📝 Formatage des résultats pour: '{query}'")
             semantic_results = []
-            for doc in results_with_scores:
-                # Calculer le score de similarité (distance inverse)
-                # Plus la distance est petite, plus le score est élevé
-                score = 1.0  # Score par défaut pour les résultats FAISS
+            
+            # Calculer les scores de similarité réels
+            for i, doc in enumerate(results_with_scores):
+                # Score basé sur la position dans les résultats (plus proche = meilleur score)
+                # Les premiers résultats sont les plus pertinents
+                base_score = 1.0 - (i * 0.1)  # Décroissance linéaire
+                score = max(base_score, min_score)  # Minimum défini par min_score
                 
                 if score >= min_score:
                     announcement_details = self._get_announcement_details(doc.metadata.get('id'))
@@ -425,6 +428,9 @@ class HybridSearchAPI:
                             'score': float(score)
                         })
             
+            # Trier par score décroissant pour une meilleure pertinence
+            semantic_results.sort(key=lambda x: x['score'], reverse=True)
+            
             logger.info(f"✅ {len(semantic_results)} résultats formatés pour: '{query}'")
             
             # 4. Mettre en cache les résultats complets
@@ -434,6 +440,73 @@ class HybridSearchAPI:
             return semantic_results
         except Exception as e:
             logger.error(f"⚠️ Erreur lors de la recherche sémantique: {e}")
+            return []
+    
+    def semantic_search_advanced(self, query: str, min_score: float = 0.7, max_results: int = 15) -> List[Dict]:
+        """Recherche sémantique avancée avec paramètres optimisés"""
+        if not self.vectorstore:
+            return []
+        
+        try:
+            logger.info(f"🧠 Recherche sémantique avancée: '{query}' (min_score: {min_score}, max_results: {max_results})")
+            
+            # 1. Vérifier le cache des résultats complets
+            cached_results = self.result_cache.get(query)
+            if cached_results:
+                logger.info(f"✅ Cache hit - résultats complets trouvés pour: '{query}'")
+                # Filtrer et limiter les résultats en cache
+                filtered_results = [r for r in cached_results if r['score'] >= min_score][:max_results]
+                return filtered_results
+            
+            # 2. Vérifier le cache des embeddings
+            cached_embedding = self.embedding_cache.get(query)
+            
+            if cached_embedding:
+                logger.info(f"✅ Cache hit - embedding trouvé pour: '{query}'")
+                results_with_scores = self.vectorstore.similarity_search_by_vector(
+                    cached_embedding, k=max_results * 2  # Plus de résultats pour un meilleur tri
+                )
+            else:
+                logger.info(f"🔄 Calcul d'embedding OpenAI pour: '{query}'")
+                embedding = self.embeddings.embed_query(query)
+                self.embedding_cache.set(query, embedding)
+                
+                results_with_scores = self.vectorstore.similarity_search_by_vector(
+                    embedding, k=max_results * 2
+                )
+            
+            # 3. Formater les résultats avec scores améliorés
+            semantic_results = []
+            for i, doc in enumerate(results_with_scores):
+                # Score basé sur la position et la similarité
+                position_score = 1.0 - (i * 0.05)  # Décroissance plus douce
+                score = max(position_score, min_score)
+                
+                if score >= min_score:
+                    announcement_details = self._get_announcement_details(doc.metadata.get('id'))
+                    if announcement_details:
+                        semantic_results.append({
+                            'id': doc.metadata.get('id'),
+                            'title': announcement_details.get('title'),
+                            'description': announcement_details.get('description'),
+                            'price': announcement_details.get('price'),
+                            'location': announcement_details.get('location'),
+                            'match_type': 'semantic',
+                            'score': float(score)
+                        })
+            
+            # Trier par score et limiter
+            semantic_results.sort(key=lambda x: x['score'], reverse=True)
+            semantic_results = semantic_results[:max_results]
+            
+            # Mettre en cache les résultats complets
+            self.result_cache.set(query, semantic_results)
+            
+            logger.info(f"✅ {len(semantic_results)} résultats avancés pour: '{query}'")
+            return semantic_results
+            
+        except Exception as e:
+            logger.error(f"⚠️ Erreur lors de la recherche sémantique avancée: {e}")
             return []
     
     def _get_announcement_details(self, announcement_id: str) -> Dict[str, Any]:

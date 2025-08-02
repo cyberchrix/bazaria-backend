@@ -45,6 +45,11 @@ class SearchRequest(BaseModel):
     query: str
     limit: Optional[int] = 10
 
+class AdvancedSearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 15
+    min_score: Optional[float] = 0.7
+
 class SearchResult(BaseModel):
     id: str
     title: str
@@ -346,6 +351,60 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
         logger.error(f"❌ Erreur inattendue lors de la recherche sémantique: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique: {str(e)}")
+
+
+@app.post("/search/semantic/advanced", response_model=SearchResponse)
+async def search_announcements_semantic_advanced(request: AdvancedSearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche sémantique avancée avec paramètres optimisés
+    
+    - **query**: Concept ou intention (ex: "pour me déplacer", "moderne et élégant")
+    - **limit**: Nombre maximum de résultats (défaut: 15)
+    - **min_score**: Score minimum de pertinence (défaut: 0.7)
+    """
+    logger.info(f"🧠 Recherche sémantique avancée demandée: '{request.query}' (limit: {request.limit}, min_score: {request.min_score})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Utiliser notre fonction semantic_search_advanced avec cache optimisé
+        semantic_results = api.semantic_search_advanced(
+            request.query, 
+            min_score=request.min_score, 
+            max_results=request.limit
+        )
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in semantic_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche sémantique avancée terminée: {len(semantic_results)} résultats trouvés")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(semantic_results),
+            text_results=0,  # Pas de résultats textuels en recherche sémantique pure
+            semantic_results=len(semantic_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche sémantique avancée: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique avancée: {str(e)}")
 
 
 @app.post("/search/category", response_model=SearchResponse)
