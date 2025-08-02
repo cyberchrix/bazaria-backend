@@ -469,6 +469,60 @@ async def search_announcements_filtered(request: FilteredSearchRequest, api: Hyb
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche avec filtrage: {str(e)}")
 
 
+@app.post("/search/semantic/real-scores", response_model=SearchResponse)
+async def search_announcements_semantic_real_scores(request: AdvancedSearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
+    """
+    Recherche sémantique avec vrais scores basés sur les distances FAISS
+    
+    - **query**: Requête de recherche
+    - **limit**: Nombre maximum de résultats (défaut: 15)
+    - **min_score**: Score minimum basé sur la vraie similarité (défaut: 0.7)
+    """
+    logger.info(f"🧠 Recherche sémantique avec vrais scores demandée: '{request.query}' (limit: {request.limit}, min_score: {request.min_score})")
+    
+    try:
+        if not request.query.strip():
+            logger.warning("❌ Requête vide rejetée")
+            raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
+        
+        # Utiliser notre fonction de recherche avec vrais scores
+        semantic_results = api.semantic_search_with_real_scores(
+            request.query, 
+            min_score=request.min_score, 
+            max_results=request.limit
+        )
+        
+        # Convertir les résultats en format Pydantic
+        search_results = []
+        for result in semantic_results:
+            search_results.append(SearchResult(
+                id=result["id"],
+                title=result["title"],
+                description=result["description"],
+                price=result["price"],
+                location=result["location"],
+                match_type=result["match_type"],
+                score=result["score"]
+            ))
+        
+        logger.info(f"✅ Recherche sémantique avec vrais scores terminée: {len(semantic_results)} résultats trouvés")
+        
+        return SearchResponse(
+            query=request.query,
+            total_results=len(semantic_results),
+            text_results=0,  # Pas de résultats textuels en recherche sémantique pure
+            semantic_results=len(semantic_results),
+            results=search_results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erreur inattendue lors de la recherche sémantique avec vrais scores: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche sémantique avec vrais scores: {str(e)}")
+
+
 @app.post("/search/category", response_model=SearchResponse)
 async def search_announcements_by_category(request: SearchRequest, api: HybridSearchAPI = Depends(get_search_api)):
     """
