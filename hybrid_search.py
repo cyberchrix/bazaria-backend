@@ -26,7 +26,9 @@ class EmbeddingCache:
     
     def __init__(self, cache_file="embedding_cache.json", duration_hours=24):
         # Utiliser le répertoire persistant sur Render
-        if os.path.exists("/var/data"):
+        if os.path.exists("/opt/render/project/src/data"):
+            self.cache_file = os.path.join("/opt/render/project/src/data", cache_file)
+        elif os.path.exists("/var/data"):
             self.cache_file = os.path.join("/var/data", cache_file)
         else:
             self.cache_file = cache_file
@@ -140,7 +142,9 @@ class ResultCache:
     
     def __init__(self, cache_file="result_cache.json", duration_hours=1):
         # Utiliser le répertoire persistant sur Render
-        if os.path.exists("/var/data"):
+        if os.path.exists("/opt/render/project/src/data"):
+            self.cache_file = os.path.join("/opt/render/project/src/data", cache_file)
+        elif os.path.exists("/var/data"):
             self.cache_file = os.path.join("/var/data", cache_file)
         else:
             self.cache_file = cache_file
