@@ -240,11 +240,11 @@ class HybridSearchAPI:
             
             logger.info("📦 Chargement de l'index FAISS...")
             # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
-            embeddings = OpenAIEmbeddings(
+            self.embeddings = OpenAIEmbeddings(
                 model="text-embedding-3-large",  # Modèle plus avancé
                 dimensions=3072  # Plus de dimensions pour une meilleure représentation
             )
-            self.vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
+            self.vectorstore = FAISS.load_local(INDEX_DIR, self.embeddings, allow_dangerous_deserialization=True)
             logger.info("✅ Index FAISS chargé avec succès")
         except Exception as e:
             logger.error(f"❌ Erreur lors du chargement de l'index: {e}")
