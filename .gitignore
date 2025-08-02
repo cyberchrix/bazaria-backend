@@ -61,4 +61,9 @@ index_bazaria_improved/
 *.temp
 
 # Test files (ignorés car temporaires et spécifiques au développement)
-tests/ 
+tests/
+
+# Cache files (ignorés car générés automatiquement)
+embedding_cache.json
+result_cache.json
+indexed_ids.json 
