@@ -751,33 +751,41 @@ async def clear_cache(api: HybridSearchAPI = Depends(get_search_api)):
 
 @app.get("/admin/cache-logs")
 async def get_cache_logs(api: HybridSearchAPI = Depends(get_search_api)):
-    """Retourne les logs de cache en temps réel (admin only)"""
+    """Retourne les vrais logs de cache depuis le système de logging (admin only)"""
     try:
-        logger.info("📊 Récupération des logs de cache...")
+        logger.info("📊 Récupération des vrais logs de cache...")
         
-        # Simuler une recherche pour générer des logs
-        test_query = "test logs cache"
+        # Récupérer les logs depuis le système de logging
+        import logging
+        import io
         
-        # Logs de test
-        logs = [
-            "🔍 Test des logs de cache en temps réel",
-            f"📂 Tentative de chargement du cache depuis: {api.embedding_cache.cache_file}",
-            f"📂 Tentative de chargement du cache résultats depuis: {api.result_cache.cache_file}",
-            f"🔍 Vérification du cache des résultats pour: '{test_query}'",
-            f"🔍 Vérification du cache des embeddings pour: '{test_query}'",
-            "❌ Cache miss - embedding non trouvé",
-            "🔄 Calcul d'embedding OpenAI nécessaire",
-            "✅ Embedding calculé et mis en cache",
-            "💾 Stockage dans le cache embedding",
-            "💾 Tentative de sauvegarde du cache",
-            "📝 Formatage des résultats",
-            "💾 Mise en cache des résultats complets",
-            "💾 Tentative de sauvegarde du cache résultats"
-        ]
+        # Capturer les logs
+        log_capture = io.StringIO()
+        log_handler = logging.StreamHandler(log_capture)
+        log_handler.setLevel(logging.INFO)
+        
+        # Ajouter temporairement le handler
+        root_logger = logging.getLogger()
+        root_logger.addHandler(log_handler)
+        
+        # Effectuer une vraie recherche pour générer des logs
+        test_query = "test logs cache réel"
+        logger.info(f"🧪 Test de recherche pour générer des logs: '{test_query}'")
+        
+        # Faire une vraie recherche sémantique
+        results = api.semantic_search(test_query)
+        logger.info(f"✅ Recherche terminée: {len(results)} résultats")
+        
+        # Récupérer les logs capturés
+        logs = log_capture.getvalue().split('\n')
+        logs = [log.strip() for log in logs if log.strip() and 'cache' in log.lower()]
+        
+        # Nettoyer
+        root_logger.removeHandler(log_handler)
         
         return {
             "status": "success",
-            "message": "Logs de cache générés",
+            "message": "Vrais logs de cache récupérés",
             "logs": logs,
             "cache_stats": {
                 "embedding_cache": api.embedding_cache.get_stats(),
@@ -788,6 +796,40 @@ async def get_cache_logs(api: HybridSearchAPI = Depends(get_search_api)):
     except Exception as e:
         logger.error(f"❌ Erreur lors de la récupération des logs: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des logs: {e}")
+
+@app.post("/admin/test-cache-logs")
+async def test_cache_logs(api: HybridSearchAPI = Depends(get_search_api)):
+    """Test de recherche avec logs de cache en temps réel (admin only)"""
+    try:
+        logger.info("🧪 Test de recherche avec logs de cache...")
+        
+        # Effectuer une vraie recherche sémantique
+        test_query = "test cache logs temps réel"
+        logger.info(f"🔍 Début de recherche: '{test_query}'")
+        
+        # Faire une vraie recherche sémantique
+        results = api.semantic_search(test_query)
+        logger.info(f"✅ Recherche terminée: {len(results)} résultats")
+        
+        # Deuxième recherche pour tester le cache
+        logger.info(f"🔍 Deuxième recherche: '{test_query}' (avec cache)")
+        results2 = api.semantic_search(test_query)
+        logger.info(f"✅ Deuxième recherche terminée: {len(results2)} résultats")
+        
+        return {
+            "status": "success",
+            "message": "Test de cache avec logs terminé",
+            "first_search_results": len(results),
+            "second_search_results": len(results2),
+            "cache_stats": {
+                "embedding_cache": api.embedding_cache.get_stats(),
+                "result_cache": api.result_cache.get_stats()
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du test de cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du test de cache: {e}")
 
 if __name__ == "__main__":
     # Configuration pour le développement local
