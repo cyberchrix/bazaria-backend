@@ -287,6 +287,156 @@ def rebuild_index():
     
     print("✅ Index reconstruit avec succès")
 
+def add_new_announcements():
+    """Ajoute seulement les nouvelles annonces à l'index existant"""
+    
+    print("🔄 Ajout des nouvelles annonces à l'index FAISS...")
+    
+    # Connexion Appwrite
+    client = Client()
+    client.set_endpoint(APPWRITE_ENDPOINT)
+    client.set_project(APPWRITE_PROJECT)
+    client.set_key(APPWRITE_API_KEY)
+    db = Databases(client)
+    
+    # Charger les IDs déjà indexés
+    indexed_ids = load_indexed_ids()
+    print(f"📊 IDs déjà indexés: {len(indexed_ids)}")
+    
+    # Récupérer toutes les annonces
+    print("🔍 Récupération de toutes les annonces...")
+    all_annonces = []
+    offset = 0
+    limit = 25
+    
+    while True:
+        print(f"📄 Récupération page {offset//limit + 1} (offset={offset}, limit={limit})")
+        try:
+            response = db.list_documents(
+                database_id=DATABASE_ID, 
+                collection_id=COLLECTION_ID, 
+                queries=[
+                    Query.limit(limit),
+                    Query.offset(offset)
+                ]
+            )
+            annonces = response['documents']
+            print(f"  ✅ Récupéré {len(annonces)} annonces")
+            
+            if len(annonces) == 0:
+                print("  🏁 Fin de pagination (aucune annonce)")
+                break
+            
+            all_annonces.extend(annonces)
+            offset += limit
+            
+            if len(annonces) < limit:
+                print("  🏁 Dernière page atteinte")
+                break
+                
+        except Exception as e:
+            print(f"❌ Erreur lors de la récupération: {e}")
+            return {"success": False, "new_announcements": 0, "message": f"Erreur lors de la récupération: {e}"}
+    
+    print(f"📊 Total d'annonces récupérées: {len(all_annonces)}")
+    
+    # Identifier les nouvelles annonces
+    new_annonces = []
+    for annonce in all_annonces:
+        if annonce['$id'] not in indexed_ids:
+            new_annonces.append(annonce)
+    
+    print(f"🆕 Nouvelles annonces trouvées: {len(new_annonces)}")
+    
+    if len(new_annonces) == 0:
+        print("✅ Aucune nouvelle annonce à ajouter")
+        return {"success": True, "new_announcements": 0, "message": "Aucune nouvelle annonce à ajouter"}
+    
+    # Afficher les nouvelles annonces
+    print("📋 Nouvelles annonces:")
+    for i, annonce in enumerate(new_annonces, 1):
+        print(f"  {i}. {annonce.get('title', 'N/A')} (ID: {annonce.get('$id', 'N/A')})")
+    
+    # Charger l'index existant
+    if not os.path.exists(INDEX_DIR):
+        print("❌ Index FAISS non trouvé, création d'un nouvel index...")
+        return update_index()
+    
+    print("📦 Chargement de l'index FAISS existant...")
+    try:
+        embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-large",
+            dimensions=3072
+        )
+        vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
+        print("✅ Index FAISS chargé avec succès")
+    except Exception as e:
+        print(f"❌ Erreur chargement index: {e}")
+        return {"success": False, "new_announcements": 0, "message": f"Erreur chargement index: {e}"}
+    
+    # Formater les nouvelles annonces
+    print(f"\n🔧 Formatage de {len(new_annonces)} nouvelles annonces...")
+    new_docs = []
+    
+    for i, a in enumerate(new_annonces, 1):
+        try:
+            print(f"  📝 Traitement nouvelle annonce {i}/{len(new_annonces)}: '{a.get('title', 'N/A')}' (ID: {a.get('$id', 'N/A')})")
+            
+            try:
+                formatted_content = format_annonce(a)
+                print(f"    ✅ Contenu formaté ({len(formatted_content)} caractères)")
+            except Exception as e:
+                print(f"    ❌ Erreur formatage: {e}")
+                continue
+            
+            doc = Document(
+                page_content=formatted_content, 
+                metadata={
+                    "id": a["$id"],
+                    "title": a.get('title', ''),
+                    "description": a.get('description', ''),
+                    "price": a.get('price', 0.0),
+                    "location": a.get('location', '')
+                }
+            )
+            
+            new_docs.append(doc)
+            print(f"    ✅ Document créé et ajouté")
+            
+        except Exception as e:
+            print(f"    ❌ Erreur traitement annonce {i}: {e}")
+            continue
+    
+    if len(new_docs) == 0:
+        print("❌ Aucun document valide à ajouter")
+        return {"success": False, "new_announcements": 0, "message": "Aucun document valide à ajouter"}
+    
+    # Ajouter les nouveaux documents à l'index
+    print(f"\n📦 Ajout de {len(new_docs)} nouveaux documents à l'index...")
+    try:
+        vectorstore.add_documents(new_docs)
+        print("✅ Nouveaux documents ajoutés à l'index")
+    except Exception as e:
+        print(f"❌ Erreur ajout documents: {e}")
+        return {"success": False, "new_announcements": 0, "message": f"Erreur ajout documents: {e}"}
+    
+    # Sauvegarder l'index mis à jour
+    vectorstore.save_local(INDEX_DIR)
+    print(f"✅ Index mis à jour sauvegardé dans '{INDEX_DIR}/'")
+    
+    # Mettre à jour la liste des IDs indexés
+    for annonce in new_annonces:
+        indexed_ids.add(annonce['$id'])
+    
+    save_indexed_ids(indexed_ids)
+    print(f"✅ Liste des IDs indexés mise à jour")
+    
+    print(f"\n📊 Statistiques finales:")
+    print(f"  - Nouvelles annonces ajoutées: {len(new_annonces)}")
+    print(f"  - Total d'annonces indexées: {len(indexed_ids)}")
+    
+    return {"success": True, "new_announcements": len(new_annonces), "message": f"{len(new_annonces)} nouvelles annonces ajoutées à l'index"}
+
 if __name__ == "__main__":
     import sys
     

@@ -987,6 +987,35 @@ async def test_cache_logs(api: HybridSearchAPI = Depends(get_search_api)):
         logger.error(f"❌ Erreur lors du test de cache: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du test de cache: {e}")
 
+@app.get("/admin/add-new-announcements")
+async def add_new_announcements():
+    """Ajoute seulement les nouvelles annonces à l'index (admin only)"""
+    try:
+        logger.info("🔄 Ajout des nouvelles annonces à l'index...")
+        
+        from update_index import add_new_announcements
+        result = add_new_announcements()
+        
+        if result.get("success"):
+            new_count = result.get("new_announcements", 0)
+            logger.info(f"✅ {new_count} nouvelles annonces ajoutées à l'index")
+            return {
+                "message": f"{new_count} nouvelles annonces ajoutées à l'index",
+                "status": "success",
+                "new_announcements": new_count
+            }
+        else:
+            logger.warning(f"⚠️ Échec de l'ajout: {result.get('message', 'Erreur inconnue')}")
+            return {
+                "message": result.get('message', 'Erreur inconnue'),
+                "status": "error",
+                "new_announcements": 0
+            }
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de l'ajout des nouvelles annonces: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'ajout des nouvelles annonces: {str(e)}")
+
 if __name__ == "__main__":
     # Configuration pour le développement local
     print("🚀 Démarrage de l'API en mode LOCAL")
