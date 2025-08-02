@@ -71,6 +71,7 @@ def update_index():
     limit = 25
     
     while True:
+        print(f"📄 Récupération page {offset//limit + 1} (offset={offset}, limit={limit})")
         try:
             response = db.list_documents(
                 database_id=DATABASE_ID, 
@@ -81,14 +82,17 @@ def update_index():
                 ]
             )
             annonces = response['documents']
+            print(f"  ✅ Récupéré {len(annonces)} annonces")
             
             if len(annonces) == 0:
+                print("  🏁 Fin de pagination (aucune annonce)")
                 break
             
             all_annonces.extend(annonces)
             offset += limit
             
             if len(annonces) < limit:
+                print("  🏁 Dernière page atteinte")
                 break
                 
         except Exception as e:
@@ -96,6 +100,11 @@ def update_index():
             return {"success": False, "new_announcements": 0, "message": f"Erreur lors de la récupération: {e}"}
     
     print(f"📊 Total d'annonces récupérées: {len(all_annonces)}")
+    
+    # Afficher les titres des annonces récupérées
+    print("📋 Annonces récupérées:")
+    for i, annonce in enumerate(all_annonces, 1):
+        print(f"  {i}. {annonce.get('title', 'N/A')} (ID: {annonce.get('$id', 'N/A')})")
     
     # Forcer la régénération complète avec le nouveau format
     print("🔄 Régénération complète avec le nouveau format...")
@@ -118,23 +127,51 @@ def update_index():
     )
     
     # Formater tous les documents avec les métadonnées complètes
-    docs = [
-        Document(
-            page_content=format_annonce(a), 
-            metadata={
-                "id": a["$id"],
-                "title": a.get('title', ''),
-                "description": a.get('description', ''),
-                "price": a.get('price', 0.0),
-                "location": a.get('location', '')
-            }
-        )
-        for a in all_annonces
-    ]
+    print(f"\n🔧 Formatage de {len(all_annonces)} annonces...")
+    docs = []
+    
+    for i, a in enumerate(all_annonces, 1):
+        try:
+            print(f"  📝 Traitement annonce {i}/{len(all_annonces)}: '{a.get('title', 'N/A')}' (ID: {a.get('$id', 'N/A')})")
+            
+            # Formater le contenu
+            try:
+                formatted_content = format_annonce(a)
+                print(f"    ✅ Contenu formaté ({len(formatted_content)} caractères)")
+            except Exception as e:
+                print(f"    ❌ Erreur formatage: {e}")
+                continue
+            
+            # Créer le document
+            doc = Document(
+                page_content=formatted_content, 
+                metadata={
+                    "id": a["$id"],
+                    "title": a.get('title', ''),
+                    "description": a.get('description', ''),
+                    "price": a.get('price', 0.0),
+                    "location": a.get('location', '')
+                }
+            )
+            
+            docs.append(doc)
+            print(f"    ✅ Document créé et ajouté")
+            
+        except Exception as e:
+            print(f"    ❌ Erreur traitement annonce {i}: {e}")
+            continue
     
     # Générer l'index FAISS
-    print(f"📦 Génération des embeddings pour {len(docs)} annonces...")
-    vectorstore = FAISS.from_documents(docs, embeddings)
+    print(f"\n📦 Génération des embeddings pour {len(docs)} annonces...")
+    
+    try:
+        print("  🔧 Création de l'index FAISS...")
+        vectorstore = FAISS.from_documents(docs, embeddings)
+        print("  ✅ Index FAISS créé avec succès")
+        
+    except Exception as e:
+        print(f"  ❌ Erreur création index FAISS: {e}")
+        return {"success": False, "new_announcements": 0, "message": f"Erreur création index FAISS: {e}"}
     
     # Sauvegarder l'index
     vectorstore.save_local(INDEX_DIR)

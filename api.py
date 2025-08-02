@@ -840,6 +840,55 @@ async def force_new_format():
         logger.error(f"❌ Erreur lors du forçage du nouveau format: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du forçage du nouveau format: {str(e)}")
 
+@app.post("/admin/reload-index")
+async def reload_index():
+    """Recharge l'index FAISS depuis le fichier (admin only)"""
+    try:
+        logger.info("🔄 Rechargement de l'index FAISS...")
+        
+        # Vider l'index en mémoire
+        from hybrid_search import HybridSearchAPI
+        import os
+        
+        # Vérifier si l'index existe
+        INDEX_DIR = "index_bazaria"
+        if not os.path.exists(INDEX_DIR):
+            logger.error("❌ Index FAISS non trouvé")
+            raise HTTPException(status_code=404, detail="Index FAISS non trouvé")
+        
+        # Forcer le rechargement de l'API
+        logger.info("📦 Rechargement de l'index en mémoire...")
+        
+        # Créer une nouvelle instance de l'API pour recharger l'index
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_api_key:
+            logger.error("❌ OPENAI_API_KEY non définie")
+            raise HTTPException(status_code=500, detail="OPENAI_API_KEY non définie")
+        
+        # Recharger l'index
+        new_api = HybridSearchAPI(openai_api_key)
+        
+        # Vérifier que l'index est chargé
+        if new_api.vectorstore is None:
+            logger.error("❌ Échec du rechargement de l'index")
+            raise HTTPException(status_code=500, detail="Échec du rechargement de l'index")
+        
+        # Remplacer l'instance globale et forcer le rechargement
+        global search_api
+        search_api = None  # Vider le cache
+        search_api = new_api  # Assigner la nouvelle instance
+        
+        logger.info("✅ Index FAISS rechargé avec succès")
+        return {
+            "message": "Index FAISS rechargé avec succès",
+            "status": "success",
+            "index_loaded": True
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du rechargement de l'index: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du rechargement de l'index: {str(e)}")
+
 @app.get("/admin/cache-stats")
 async def get_cache_stats(api: HybridSearchAPI = Depends(get_search_api)):
     """Récupère les statistiques des caches (admin only)"""

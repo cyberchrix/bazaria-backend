@@ -1,0 +1,224 @@
+{
+  "pour boire un verre": {
+    "results": [
+      {
+        "id": "688e0666a47c445df60d",
+        "title": "Verres \u00e0 cocktail - Lot de 6",
+        "description": "Lot de 6 verres",
+        "price": 20,
+        "location": "Lille",
+        "match_type": "semantic",
+        "score": 0.9620709099893783
+      },
+      {
+        "id": "6885d1e8000cb8e9af1e",
+        "title": "Miroir vintage dor\u00e9",
+        "description": "Miroir vintage avec cadre dor\u00e9, style boh\u00e8me. Cadre en bois sculpt\u00e9, dorure \u00e0 la feuille d'or 24 carats. Dimensions : 80x60cm, forme ovale \u00e9l\u00e9gante. Style ann\u00e9es 30, tr\u00e8s d\u00e9coratif. Parfait \u00e9tat, reflet impeccable. Id\u00e9al pour entr\u00e9e ou salon. Livr\u00e9 avec syst\u00e8me d'accrochage. Pi\u00e8ce unique, caract\u00e8re authentique. Poids : 8kg, tr\u00e8s stable. Vendu car changement de d\u00e9coration.",
+        "price": 190,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9467737205772677
+      },
+      {
+        "id": "6885d1eb00134d059190",
+        "title": "Miroir vintage dor\u00e9 #9369",
+        "description": "Miroir vintage avec cadre dor\u00e9, style boh\u00e8me. Cadre en bois sculpt\u00e9, dorure \u00e0 la feuille d'or 24 carats. Dimensions : 80x60cm, forme ovale \u00e9l\u00e9gante. Style ann\u00e9es 30, tr\u00e8s d\u00e9coratif. Parfait \u00e9tat, reflet impeccable. Id\u00e9al pour entr\u00e9e ou salon. Livr\u00e9 avec syst\u00e8me d'accrochage. Pi\u00e8ce unique, caract\u00e8re authentique. Poids : 8kg, tr\u00e8s stable. Vendu car changement de d\u00e9coration.",
+        "price": 133,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9262911694730962
+      },
+      {
+        "id": "6885d1e9002e255c5dcc",
+        "title": "Coussin d\u00e9coratif boh\u00e8me",
+        "description": "Coussin d\u00e9coratif style boh\u00e8me, couleur terre. Tissu 100% coton bio, rembourrage en plumes naturelles. Dimensions : 45x45cm, forme carr\u00e9e. Motif g\u00e9om\u00e9trique ethnique, tr\u00e8s tendance. Couleur sable/terre, s'harmonise avec tous les int\u00e9rieurs. Lavable en machine 30\u00b0. Id\u00e9al pour canap\u00e9 ou lit. Fabrication \u00e9thique, commerce \u00e9quitable. Livr\u00e9 avec housse de protection.",
+        "price": 48,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8996961055494241
+      },
+      {
+        "id": "6885d1e5001f03d567c0",
+        "title": "Table de salle \u00e0 manger bois",
+        "description": "Table de salle \u00e0 manger en bois massif, 6 places. Bois de ch\u00eane massif, finition naturelle huil\u00e9e. Dimensions : 180x90x75cm, rallonge int\u00e9gr\u00e9e jusqu'\u00e0 220cm. Pieds en bois massif, style scandinave. Livr\u00e9e avec 6 chaises assorties en bois et tissu. Fabrication artisanale fran\u00e7aise. Parfait \u00e9tat, entretien r\u00e9gulier. Id\u00e9al pour famille ou r\u00e9ceptions. Poids : 85kg, tr\u00e8s stable.",
+        "price": 534,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8665100746194287
+      },
+      {
+        "id": "688b834728f52121db03",
+        "title": "Villa pour test",
+        "description": "Villa",
+        "price": 450000,
+        "location": "Lille",
+        "match_type": "semantic",
+        "score": 0.8270940568806214
+      },
+      {
+        "id": "6885d1ec00384c3fe655",
+        "title": "V\u00e9lo de route Specialized",
+        "description": "V\u00e9lo de route Specialized Allez, taille L. Cadre en aluminium A1 Premium, tr\u00e8s l\u00e9ger et rigide. Groupe Shimano 105 11 vitesses, freins \u00e0 patins. Roues Mavic Aksium, pneus Continental Ultra Sport. Guidon drop, position de course. Id\u00e9al pour sorties sportives et comp\u00e9titions amateurs. Couleur noir mat \u00e9l\u00e9gante. Livr\u00e9 avec \u00e9clairage, pompe et documentation. Entretien professionnel r\u00e9cent.",
+        "price": 1476,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.7829325014477408
+      },
+      {
+        "id": "68863459ba189c73748d",
+        "title": "Test",
+        "description": "Description",
+        "price": 600,
+        "location": "Tourcoing",
+        "match_type": "semantic",
+        "score": 0.7365754256554428
+      },
+      {
+        "id": "6885d1ee00199b110f25",
+        "title": "Lampe de chevet design",
+        "description": "Lampe de chevet design, style minimaliste. Abat-jour en tissu lin naturel, base en m\u00e9tal laqu\u00e9 blanc. Hauteur 45cm, diam\u00e8tre abat-jour 25cm. Ampoule LED incluse, lumi\u00e8re chaude 2700K. Interrupteur tactile sur la base. Style \u00e9pur\u00e9, tr\u00e8s tendance. Id\u00e9al pour chambre ou salon. Fabrication fran\u00e7aise, garantie 2 ans. Livr\u00e9e avec ampoule et documentation.",
+        "price": 97,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.6911260626153755
+      },
+      {
+        "id": "6885d2030030aa4be459",
+        "title": "Table de salle \u00e0 manger bois #9087",
+        "description": "Table de salle \u00e0 manger en bois massif, 6 places. Bois de ch\u00eane massif, finition naturelle huil\u00e9e. Dimensions : 180x90x75cm, rallonge int\u00e9gr\u00e9e jusqu'\u00e0 220cm. Pieds en bois massif, style scandinave. Livr\u00e9e avec 6 chaises assorties en bois et tissu. Fabrication artisanale fran\u00e7aise. Parfait \u00e9tat, entretien r\u00e9gulier. Id\u00e9al pour famille ou r\u00e9ceptions. Poids : 85kg, tr\u00e8s stable.",
+        "price": 442,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.6494543442866523
+      }
+    ],
+    "timestamp": "2025-08-02T15:10:10.910728"
+  },
+  "verres": {
+    "results": [
+      {
+        "id": "688e0666a47c445df60d",
+        "title": "Verres \u00e0 cocktail - Lot de 6",
+        "description": "Lot de 6 verres",
+        "price": 20,
+        "location": "Lille",
+        "match_type": "semantic",
+        "score": 0.9620709099893783
+      },
+      {
+        "id": "6885d2060013f07d310f",
+        "title": "Vase design scandinave #8046 #7062",
+        "description": "Vase design en c\u00e9ramique, style scandinave. C\u00e9ramique \u00e9maill\u00e9e, finition mate. Hauteur 35cm, diam\u00e8tre 15cm. Couleur gris anthracite, tr\u00e8s tendance. Fabrication artisanale danoise. Parfait \u00e9tat, jamais utilis\u00e9. Id\u00e9al pour fleurs s\u00e9ch\u00e9es ou d\u00e9co minimaliste. Style \u00e9pur\u00e9, s'adapte \u00e0 tous les int\u00e9rieurs. Livr\u00e9 dans son emballage d'origine. Poids : 2kg.",
+        "price": 134,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9456941016648894
+      },
+      {
+        "id": "6885d1fa0002c920748c",
+        "title": "Vase design scandinave #8046",
+        "description": "Vase design en c\u00e9ramique, style scandinave. C\u00e9ramique \u00e9maill\u00e9e, finition mate. Hauteur 35cm, diam\u00e8tre 15cm. Couleur gris anthracite, tr\u00e8s tendance. Fabrication artisanale danoise. Parfait \u00e9tat, jamais utilis\u00e9. Id\u00e9al pour fleurs s\u00e9ch\u00e9es ou d\u00e9co minimaliste. Style \u00e9pur\u00e9, s'adapte \u00e0 tous les int\u00e9rieurs. Livr\u00e9 dans son emballage d'origine. Poids : 2kg.",
+        "price": 60,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9234181421174569
+      },
+      {
+        "id": "6885d1e2001caf802f2d",
+        "title": "Vase design scandinave",
+        "description": "Vase design en c\u00e9ramique, style scandinave. C\u00e9ramique \u00e9maill\u00e9e, finition mate. Hauteur 35cm, diam\u00e8tre 15cm. Couleur gris anthracite, tr\u00e8s tendance. Fabrication artisanale danoise. Parfait \u00e9tat, jamais utilis\u00e9. Id\u00e9al pour fleurs s\u00e9ch\u00e9es ou d\u00e9co minimaliste. Style \u00e9pur\u00e9, s'adapte \u00e0 tous les int\u00e9rieurs. Livr\u00e9 dans son emballage d'origine. Poids : 2kg.",
+        "price": 107,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8941743170040495
+      },
+      {
+        "id": "6885d1e8000cb8e9af1e",
+        "title": "Miroir vintage dor\u00e9",
+        "description": "Miroir vintage avec cadre dor\u00e9, style boh\u00e8me. Cadre en bois sculpt\u00e9, dorure \u00e0 la feuille d'or 24 carats. Dimensions : 80x60cm, forme ovale \u00e9l\u00e9gante. Style ann\u00e9es 30, tr\u00e8s d\u00e9coratif. Parfait \u00e9tat, reflet impeccable. Id\u00e9al pour entr\u00e9e ou salon. Livr\u00e9 avec syst\u00e8me d'accrochage. Pi\u00e8ce unique, caract\u00e8re authentique. Poids : 8kg, tr\u00e8s stable. Vendu car changement de d\u00e9coration.",
+        "price": 190,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8575210528504948
+      }
+    ],
+    "timestamp": "2025-08-02T15:10:27.607974"
+  },
+  "pour manger": {
+    "results": [
+      {
+        "id": "6885d1e5001f03d567c0",
+        "title": "Table de salle \u00e0 manger bois",
+        "description": "Table de salle \u00e0 manger en bois massif, 6 places. Bois de ch\u00eane massif, finition naturelle huil\u00e9e. Dimensions : 180x90x75cm, rallonge int\u00e9gr\u00e9e jusqu'\u00e0 220cm. Pieds en bois massif, style scandinave. Livr\u00e9e avec 6 chaises assorties en bois et tissu. Fabrication artisanale fran\u00e7aise. Parfait \u00e9tat, entretien r\u00e9gulier. Id\u00e9al pour famille ou r\u00e9ceptions. Poids : 85kg, tr\u00e8s stable.",
+        "price": 534,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9620709099893783
+      },
+      {
+        "id": "6885d2030030aa4be459",
+        "title": "Table de salle \u00e0 manger bois #9087",
+        "description": "Table de salle \u00e0 manger en bois massif, 6 places. Bois de ch\u00eane massif, finition naturelle huil\u00e9e. Dimensions : 180x90x75cm, rallonge int\u00e9gr\u00e9e jusqu'\u00e0 220cm. Pieds en bois massif, style scandinave. Livr\u00e9e avec 6 chaises assorties en bois et tissu. Fabrication artisanale fran\u00e7aise. Parfait \u00e9tat, entretien r\u00e9gulier. Id\u00e9al pour famille ou r\u00e9ceptions. Poids : 85kg, tr\u00e8s stable.",
+        "price": 442,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9471293707145011
+      },
+      {
+        "id": "688e0666a47c445df60d",
+        "title": "Verres \u00e0 cocktail - Lot de 6",
+        "description": "Lot de 6 verres",
+        "price": 20,
+        "location": "Lille",
+        "match_type": "semantic",
+        "score": 0.9272288355315174
+      },
+      {
+        "id": "6885d2040031c9f9dcd6",
+        "title": "Peugeot 208",
+        "description": "Peugeot 208, ann\u00e9e 2020, 45.000 km, essence. Version Active Pack, moteur 1.2 PureTech 100ch. Bo\u00eete manuelle 6 rapports, consommation 5.2L/100km. \u00c9quipements : GPS, climatisation, r\u00e9gulateur de vitesse, cam\u00e9ra de recul. Int\u00e9rieur en excellent \u00e9tat, si\u00e8ges en tissu gris. Pneus en bon \u00e9tat, entretien r\u00e9gulier effectu\u00e9. Contr\u00f4le technique valide, garantie constructeur. Couleur gris m\u00e9tallis\u00e9.",
+        "price": 16480,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.9014880572030769
+      },
+      {
+        "id": "6885d1f6003b99c1b985",
+        "title": "VTT Trek Marlin 7",
+        "description": "VTT Trek Marlin 7, taille M, en excellent \u00e9tat. Vendu car changement de v\u00e9lo. Cadre en aluminium Alpha Gold, suspension avant RockShox Judy Silver. D\u00e9railleur Shimano Deore 12 vitesses, freins hydrauliques Tektro. Pneus Bontrager XR2 en bon \u00e9tat. Livr\u00e9 avec \u00e9clairage avant/arri\u00e8re, garde-boue, porte-bagages et antivol. Id\u00e9al pour randonn\u00e9es et chemins forestiers. Entretien r\u00e9gulier effectu\u00e9.",
+        "price": 462,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8694250030421244
+      },
+      {
+        "id": "6885d2050023d73a0d8a",
+        "title": "Google Pixel 6",
+        "description": "Google Pixel 6, 128 GB, couleur blanc. T\u00e9l\u00e9phone Google en excellent \u00e9tat, achet\u00e9 il y a 1 an. Appareil photo exceptionnel avec IA Google, photos de qualit\u00e9 professionnelle. \u00c9cran OLED 6.4 pouces parfait, syst\u00e8me Android pur sans bloatware. Batterie 4614mAh encore tr\u00e8s performante. Livr\u00e9 avec chargeur 30W, c\u00e2ble USB-C et coque de protection. Id\u00e9al pour les amateurs de photographie mobile.",
+        "price": 423,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.8313109185850412
+      },
+      {
+        "id": "68863459ba189c73748d",
+        "title": "Test",
+        "description": "Description",
+        "price": 600,
+        "location": "Tourcoing",
+        "match_type": "semantic",
+        "score": 0.788442630566023
+      },
+      {
+        "id": "6885d209001c44225c54",
+        "title": "Locations - Article de qualit\u00e9 #208",
+        "description": "Locations en excellent \u00e9tat. Vendu \u00e0 Roubaix.",
+        "price": 243,
+        "location": "Roubaix",
+        "match_type": "semantic",
+        "score": 0.7431267325488224
+      }
+    ],
+    "timestamp": "2025-08-02T15:16:55.726393"
+  }
+}

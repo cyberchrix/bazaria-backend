@@ -227,13 +227,27 @@ def main():
     docs = []
     categories_count = {}
     
-    for a in all_annonces:
-        category = determine_category(a.get('criterias', '[]'), a.get('title', ''), a.get('description', ''))
-        categories_count[category] = categories_count.get(category, 0) + 1
-        
-        docs.append(
-            Document(
-                page_content=format_annonce_improved(a), 
+    print(f"\n🔧 Formatage de {len(all_annonces)} annonces...")
+    
+    for i, a in enumerate(all_annonces, 1):
+        try:
+            print(f"  📝 Traitement annonce {i}/{len(all_annonces)}: '{a.get('title', 'N/A')}' (ID: {a.get('$id', 'N/A')})")
+            
+            # Déterminer la catégorie
+            category = determine_category(a.get('criterias', '[]'), a.get('title', ''), a.get('description', ''))
+            print(f"    🏷️ Catégorie déterminée: {category}")
+            
+            # Formater le contenu
+            try:
+                formatted_content = format_annonce_improved(a)
+                print(f"    ✅ Contenu formaté ({len(formatted_content)} caractères)")
+            except Exception as e:
+                print(f"    ❌ Erreur formatage: {e}")
+                continue
+            
+            # Créer le document
+            doc = Document(
+                page_content=formatted_content, 
                 metadata={
                     "id": a["$id"],
                     "title": a.get('title', ''),
@@ -243,24 +257,50 @@ def main():
                     "category": category
                 }
             )
-        )
+            
+            docs.append(doc)
+            categories_count[category] = categories_count.get(category, 0) + 1
+            print(f"    ✅ Document créé et ajouté")
+            
+        except Exception as e:
+            print(f"    ❌ Erreur traitement annonce {i}: {e}")
+            continue
 
     # ==== Générer l'index FAISS ====
     print(f"\n📦 Génération des embeddings pour {len(docs)} annonces...")
-    # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-large",  # Modèle plus avancé
-        dimensions=3072  # Plus de dimensions pour une meilleure représentation
-    )
-    vectorstore = FAISS.from_documents(docs, embeddings)
+    
+    try:
+        # Utiliser un modèle d'embedding plus avancé pour une meilleure compréhension sémantique
+        print("  🔧 Initialisation OpenAI Embeddings...")
+        embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-large",  # Modèle plus avancé
+            dimensions=3072  # Plus de dimensions pour une meilleure représentation
+        )
+        print("  ✅ OpenAI Embeddings initialisé")
+        
+        print("  🔧 Création de l'index FAISS...")
+        vectorstore = FAISS.from_documents(docs, embeddings)
+        print("  ✅ Index FAISS créé avec succès")
+        
+    except Exception as e:
+        print(f"  ❌ Erreur création index FAISS: {e}")
+        raise
 
     # ==== Sauvegarder l'index ====
     INDEX_DIR = "index_bazaria"
-    if not os.path.exists(INDEX_DIR):
-        os.makedirs(INDEX_DIR)
-
-    vectorstore.save_local(INDEX_DIR)
-    print(f"✅ Index sauvegardé dans '{INDEX_DIR}/' avec {len(docs)} annonces")
+    print(f"\n💾 Sauvegarde de l'index dans '{INDEX_DIR}/'...")
+    
+    try:
+        if not os.path.exists(INDEX_DIR):
+            os.makedirs(INDEX_DIR)
+            print("  📁 Répertoire créé")
+        
+        vectorstore.save_local(INDEX_DIR)
+        print(f"  ✅ Index sauvegardé avec {len(docs)} annonces")
+        
+    except Exception as e:
+        print(f"  ❌ Erreur sauvegarde: {e}")
+        raise
 
     # ==== Vérification avec catégories ====
     print("\n🔍 Vérification de l'index généré:")
