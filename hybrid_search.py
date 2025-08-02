@@ -31,10 +31,15 @@ class EmbeddingCache:
     
     def _load_cache(self):
         """Charge le cache depuis le fichier"""
+        logger.info(f"📂 Tentative de chargement du cache depuis: {self.cache_file}")
+        
         if os.path.exists(self.cache_file):
             try:
+                logger.info(f"✅ Fichier cache trouvé: {self.cache_file}")
                 with open(self.cache_file, 'r') as f:
                     cache_data = json.load(f)
+                
+                logger.info(f"📖 Données lues: {len(cache_data)} entrées totales")
                 
                 # Nettoyer le cache expiré
                 current_time = datetime.now()
@@ -50,43 +55,53 @@ class EmbeddingCache:
                 
             except Exception as e:
                 logger.error(f"❌ Erreur chargement cache: {e}")
+                logger.error(f"📂 Fichier problématique: {self.cache_file}")
                 return {}
+        else:
+            logger.info(f"📂 Fichier cache non trouvé: {self.cache_file}")
         return {}
     
     def _save_cache(self):
         """Sauvegarde le cache dans le fichier"""
         try:
+            logger.info(f"💾 Tentative de sauvegarde du cache vers: {self.cache_file}")
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
-            logger.info(f"💾 Cache sauvegardé: {len(self.cache)} entrées")
+            logger.info(f"✅ Cache sauvegardé: {len(self.cache)} entrées dans {self.cache_file}")
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde cache: {e}")
+            logger.error(f"📂 Fichier problématique: {self.cache_file}")
     
     def get(self, query):
         """Récupère un embedding du cache"""
         query_lower = query.lower().strip()
+        logger.info(f"🔍 Recherche dans le cache embedding: '{query}' (normalisé: '{query_lower}')")
+        
         if query_lower in self.cache:
             data = self.cache[query_lower]
             cache_time = datetime.fromisoformat(data['timestamp'])
             
             if datetime.now() - cache_time < timedelta(hours=self.duration_hours):
-                logger.info(f"🎯 Cache hit pour: '{query}'")
+                logger.info(f"✅ Cache hit pour: '{query}' (valide)")
                 return data['embedding']
             else:
-                logger.info(f"⏰ Cache expiré pour: '{query}'")
+                logger.info(f"⏰ Cache expiré pour: '{query}' (supprimé)")
                 del self.cache[query_lower]
+        else:
+            logger.info(f"❌ Cache miss pour: '{query}' (non trouvé)")
         
-        logger.info(f"❌ Cache miss pour: '{query}'")
         return None
     
     def set(self, query, embedding):
         """Stocke un embedding dans le cache"""
         query_lower = query.lower().strip()
+        logger.info(f"💾 Stockage dans le cache embedding: '{query}' (normalisé: '{query_lower}')")
+        
         self.cache[query_lower] = {
             'embedding': embedding,
             'timestamp': datetime.now().isoformat()
         }
-        logger.info(f"💾 Cache set pour: '{query}'")
+        logger.info(f"✅ Embedding mis en cache pour: '{query}'")
         self._save_cache()
     
     def get_stats(self):
@@ -107,10 +122,15 @@ class ResultCache:
     
     def _load_cache(self):
         """Charge le cache depuis le fichier"""
+        logger.info(f"📂 Tentative de chargement du cache résultats depuis: {self.cache_file}")
+        
         if os.path.exists(self.cache_file):
             try:
+                logger.info(f"✅ Fichier cache résultats trouvé: {self.cache_file}")
                 with open(self.cache_file, 'r') as f:
                     cache_data = json.load(f)
+                
+                logger.info(f"📖 Données résultats lues: {len(cache_data)} entrées totales")
                 
                 # Nettoyer le cache expiré
                 current_time = datetime.now()
@@ -126,43 +146,53 @@ class ResultCache:
                 
             except Exception as e:
                 logger.error(f"❌ Erreur chargement cache résultats: {e}")
+                logger.error(f"📂 Fichier problématique: {self.cache_file}")
                 return {}
+        else:
+            logger.info(f"📂 Fichier cache résultats non trouvé: {self.cache_file}")
         return {}
     
     def _save_cache(self):
         """Sauvegarde le cache dans le fichier"""
         try:
+            logger.info(f"💾 Tentative de sauvegarde du cache résultats vers: {self.cache_file}")
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
-            logger.info(f"💾 Cache résultats sauvegardé: {len(self.cache)} entrées")
+            logger.info(f"✅ Cache résultats sauvegardé: {len(self.cache)} entrées dans {self.cache_file}")
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde cache résultats: {e}")
+            logger.error(f"📂 Fichier problématique: {self.cache_file}")
     
     def get(self, query):
         """Récupère un résultat du cache"""
         query_lower = query.lower().strip()
+        logger.info(f"🔍 Recherche dans le cache résultats: '{query}' (normalisé: '{query_lower}')")
+        
         if query_lower in self.cache:
             data = self.cache[query_lower]
             cache_time = datetime.fromisoformat(data['timestamp'])
             
             if datetime.now() - cache_time < timedelta(hours=self.duration_hours):
-                logger.info(f"🎯 Cache hit résultats pour: '{query}'")
+                logger.info(f"✅ Cache hit résultats pour: '{query}' (valide)")
                 return data['results']
             else:
-                logger.info(f"⏰ Cache résultats expiré pour: '{query}'")
+                logger.info(f"⏰ Cache résultats expiré pour: '{query}' (supprimé)")
                 del self.cache[query_lower]
+        else:
+            logger.info(f"❌ Cache miss résultats pour: '{query}' (non trouvé)")
         
-        logger.info(f"❌ Cache miss résultats pour: '{query}'")
         return None
     
     def set(self, query, results):
         """Stocke un résultat dans le cache"""
         query_lower = query.lower().strip()
+        logger.info(f"💾 Stockage dans le cache résultats: '{query}' (normalisé: '{query_lower}')")
+        
         self.cache[query_lower] = {
             'results': results,
             'timestamp': datetime.now().isoformat()
         }
-        logger.info(f"💾 Cache résultats set pour: '{query}'")
+        logger.info(f"✅ Résultats mis en cache pour: '{query}' ({len(results)} résultats)")
         self._save_cache()
     
     def get_stats(self):
@@ -291,32 +321,41 @@ class HybridSearchAPI:
             logger.info(f"🧠 Recherche sémantique: '{query}'")
             
             # 1. Vérifier le cache des résultats complets (le plus rapide)
+            logger.info(f"🔍 Vérification du cache des résultats pour: '{query}'")
             cached_results = self.result_cache.get(query)
             if cached_results:
-                logger.info("✅ Utilisation du cache des résultats complets")
+                logger.info(f"✅ Cache hit - résultats complets trouvés pour: '{query}'")
                 return cached_results
+            else:
+                logger.info(f"❌ Cache miss - résultats complets non trouvés pour: '{query}'")
             
             # 2. Vérifier le cache des embeddings
+            logger.info(f"🔍 Vérification du cache des embeddings pour: '{query}'")
             cached_embedding = self.embedding_cache.get(query)
             
             if cached_embedding:
-                logger.info("✅ Utilisation du cache des embeddings")
+                logger.info(f"✅ Cache hit - embedding trouvé pour: '{query}'")
                 # Utiliser l'embedding en cache pour la recherche FAISS
                 results_with_scores = self.vectorstore.similarity_search_by_vector(
                     cached_embedding, k=10
                 )
+                logger.info(f"🔍 Recherche FAISS avec embedding en cache: {len(results_with_scores)} résultats")
             else:
-                logger.info("🔄 Calcul d'embedding nécessaire")
+                logger.info(f"❌ Cache miss - embedding non trouvé pour: '{query}'")
+                logger.info(f"🔄 Calcul d'embedding OpenAI pour: '{query}'")
                 # Calculer l'embedding réel et le mettre en cache
                 embedding = self.embeddings.embed_query(query)
+                logger.info(f"✅ Embedding calculé et mis en cache pour: '{query}'")
                 self.embedding_cache.set(query, embedding)
                 
                 # Recherche avec l'embedding calculé
                 results_with_scores = self.vectorstore.similarity_search_by_vector(
                     embedding, k=10
                 )
+                logger.info(f"🔍 Recherche FAISS avec nouvel embedding: {len(results_with_scores)} résultats")
             
             # 3. Formater les résultats
+            logger.info(f"📝 Formatage des résultats pour: '{query}'")
             semantic_results = []
             for doc, score in results_with_scores:
                 if score >= min_score:
@@ -332,7 +371,10 @@ class HybridSearchAPI:
                             'score': float(score)
                         })
             
+            logger.info(f"✅ {len(semantic_results)} résultats formatés pour: '{query}'")
+            
             # 4. Mettre en cache les résultats complets
+            logger.info(f"💾 Mise en cache des résultats complets pour: '{query}'")
             self.result_cache.set(query, semantic_results)
             
             return semantic_results
