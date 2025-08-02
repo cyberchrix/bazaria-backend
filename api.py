@@ -715,8 +715,8 @@ async def get_index_content(api: HybridSearchAPI = Depends(get_search_api)):
                 logger.warning(f"⚠️ Erreur lors de la récupération du document {doc_id}: {e}")
                 continue
         
-        # Trier par titre pour une meilleure lisibilité
-        index_content.sort(key=lambda x: x['title'])
+        # Trier par ID de document décroissant (dernière annonce en premier)
+        index_content.sort(key=lambda x: x['id'], reverse=True)
         
         logger.info(f"✅ Contenu de l'index récupéré: {len(index_content)} documents")
         
