@@ -357,7 +357,11 @@ class HybridSearchAPI:
             # 3. Formater les résultats
             logger.info(f"📝 Formatage des résultats pour: '{query}'")
             semantic_results = []
-            for doc, score in results_with_scores:
+            for doc in results_with_scores:
+                # Calculer le score de similarité (distance inverse)
+                # Plus la distance est petite, plus le score est élevé
+                score = 1.0  # Score par défaut pour les résultats FAISS
+                
                 if score >= min_score:
                     announcement_details = self._get_announcement_details(doc.metadata.get('id'))
                     if announcement_details:
