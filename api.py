@@ -700,6 +700,42 @@ async def force_new_format():
         logger.error(f"❌ Erreur lors du forçage du nouveau format: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du forçage du nouveau format: {str(e)}")
 
+@app.get("/admin/cache-stats")
+async def get_cache_stats(api: HybridSearchAPI = Depends(get_search_api)):
+    """Récupère les statistiques du cache (admin only)"""
+    try:
+        logger.info("📊 Récupération des statistiques du cache...")
+        
+        stats = api.embedding_cache.get_stats()
+        
+        logger.info(f"✅ Statistiques du cache récupérées: {stats['total_entries']} entrées")
+        
+        return {
+            "total_entries": stats['total_entries'],
+            "cache_file": stats['cache_file'],
+            "duration_hours": stats['duration_hours']
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur récupération stats cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.post("/admin/clear-cache")
+async def clear_cache(api: HybridSearchAPI = Depends(get_search_api)):
+    """Vide le cache des embeddings (admin only)"""
+    try:
+        logger.info("🗑️ Vidage du cache des embeddings...")
+        
+        api.embedding_cache.cache = {}
+        api.embedding_cache._save_cache()
+        
+        logger.info("✅ Cache vidé avec succès")
+        return {"message": "Cache vidé avec succès", "status": "success"}
+        
+    except Exception as e:
+        logger.error(f"❌ Erreur vidage cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
 if __name__ == "__main__":
     # Configuration pour le développement local
     print("🚀 Démarrage de l'API en mode LOCAL")
