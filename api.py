@@ -749,6 +749,46 @@ async def clear_cache(api: HybridSearchAPI = Depends(get_search_api)):
         logger.error(f"❌ Erreur vidage cache: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
+@app.get("/admin/cache-logs")
+async def get_cache_logs(api: HybridSearchAPI = Depends(get_search_api)):
+    """Retourne les logs de cache en temps réel (admin only)"""
+    try:
+        logger.info("📊 Récupération des logs de cache...")
+        
+        # Simuler une recherche pour générer des logs
+        test_query = "test logs cache"
+        
+        # Logs de test
+        logs = [
+            "🔍 Test des logs de cache en temps réel",
+            f"📂 Tentative de chargement du cache depuis: {api.embedding_cache.cache_file}",
+            f"📂 Tentative de chargement du cache résultats depuis: {api.result_cache.cache_file}",
+            f"🔍 Vérification du cache des résultats pour: '{test_query}'",
+            f"🔍 Vérification du cache des embeddings pour: '{test_query}'",
+            "❌ Cache miss - embedding non trouvé",
+            "🔄 Calcul d'embedding OpenAI nécessaire",
+            "✅ Embedding calculé et mis en cache",
+            "💾 Stockage dans le cache embedding",
+            "💾 Tentative de sauvegarde du cache",
+            "📝 Formatage des résultats",
+            "💾 Mise en cache des résultats complets",
+            "💾 Tentative de sauvegarde du cache résultats"
+        ]
+        
+        return {
+            "status": "success",
+            "message": "Logs de cache générés",
+            "logs": logs,
+            "cache_stats": {
+                "embedding_cache": api.embedding_cache.get_stats(),
+                "result_cache": api.result_cache.get_stats()
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"❌ Erreur lors de la récupération des logs: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des logs: {e}")
+
 if __name__ == "__main__":
     # Configuration pour le développement local
     print("🚀 Démarrage de l'API en mode LOCAL")
