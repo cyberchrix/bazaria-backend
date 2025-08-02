@@ -311,46 +311,11 @@ async def search_announcements_semantic(request: SearchRequest, api: HybridSearc
             logger.warning("❌ Requête vide rejetée")
             raise HTTPException(status_code=400, detail="La requête ne peut pas être vide")
         
-        # Utiliser directement l'index FAISS pour la recherche sémantique
-        if not api.vectorstore:
-            raise HTTPException(status_code=500, detail="Index FAISS non disponible")
-        
-        # Recherche sémantique dans FAISS
-        results_with_scores = api.vectorstore.similarity_search_with_score(request.query, k=request.limit * 2)
-        
-        # Filtrer et formater les résultats
-        filtered_results = []
-        for doc, score in results_with_scores:
-            if score >= 1.0:  # Seuil pour la recherche sémantique (plus le score est élevé, plus c'est pertinent avec le nouveau modèle)
-                # Utiliser les métadonnées directement de l'index FAISS
-                metadata = doc.metadata
-                if metadata and metadata.get('id'):
-                    # Essayer de récupérer les détails depuis Appwrite
-                    announcement_details = api._get_announcement_details(metadata.get('id'))
-                    if announcement_details:
-                        filtered_results.append({
-                            'id': metadata.get('id'),
-                            'title': announcement_details.get('title'),
-                            'description': announcement_details.get('description'),
-                            'price': announcement_details.get('price'),
-                            'location': announcement_details.get('location'),
-                            'match_type': 'semantic',
-                            'score': score
-                        })
-                    else:
-                        # Fallback : utiliser les métadonnées de l'index
-                        filtered_results.append({
-                            'id': metadata.get('id'),
-                            'title': metadata.get('title', 'Titre non disponible'),
-                            'description': metadata.get('description', 'Description non disponible'),
-                            'price': metadata.get('price', 0.0),
-                            'location': metadata.get('location', 'Localisation non disponible'),
-                            'match_type': 'semantic',
-                            'score': score
-                        })
+        # Utiliser notre fonction semantic_search avec cache optimisé
+        semantic_results = api.semantic_search(request.query, min_score=0.8)
         
         # Limiter le nombre de résultats
-        filtered_results = filtered_results[:request.limit]
+        filtered_results = semantic_results[:request.limit]
         
         # Convertir les résultats en format Pydantic
         search_results = []
