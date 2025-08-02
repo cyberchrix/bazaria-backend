@@ -25,7 +25,11 @@ class EmbeddingCache:
     """Cache pour les embeddings OpenAI"""
     
     def __init__(self, cache_file="embedding_cache.json", duration_hours=24):
-        self.cache_file = cache_file
+        # Utiliser le répertoire persistant sur Render
+        if os.path.exists("/var/data"):
+            self.cache_file = os.path.join("/var/data", cache_file)
+        else:
+            self.cache_file = cache_file
         self.duration_hours = duration_hours
         self.cache = self._load_cache()
     
@@ -116,7 +120,11 @@ class ResultCache:
     """Cache pour les résultats de recherche complets"""
     
     def __init__(self, cache_file="result_cache.json", duration_hours=1):
-        self.cache_file = cache_file
+        # Utiliser le répertoire persistant sur Render
+        if os.path.exists("/var/data"):
+            self.cache_file = os.path.join("/var/data", cache_file)
+        else:
+            self.cache_file = cache_file
         self.duration_hours = duration_hours
         self.cache = self._load_cache()
     
