@@ -702,18 +702,26 @@ async def force_new_format():
 
 @app.get("/admin/cache-stats")
 async def get_cache_stats(api: HybridSearchAPI = Depends(get_search_api)):
-    """Récupère les statistiques du cache (admin only)"""
+    """Récupère les statistiques des caches (admin only)"""
     try:
-        logger.info("📊 Récupération des statistiques du cache...")
+        logger.info("📊 Récupération des statistiques des caches...")
         
-        stats = api.embedding_cache.get_stats()
+        embedding_stats = api.embedding_cache.get_stats()
+        result_stats = api.result_cache.get_stats()
         
-        logger.info(f"✅ Statistiques du cache récupérées: {stats['total_entries']} entrées")
+        logger.info(f"✅ Statistiques des caches récupérées")
         
         return {
-            "total_entries": stats['total_entries'],
-            "cache_file": stats['cache_file'],
-            "duration_hours": stats['duration_hours']
+            "embedding_cache": {
+                "total_entries": embedding_stats['total_entries'],
+                "cache_file": embedding_stats['cache_file'],
+                "duration_hours": embedding_stats['duration_hours']
+            },
+            "result_cache": {
+                "total_entries": result_stats['total_entries'],
+                "cache_file": result_stats['cache_file'],
+                "duration_hours": result_stats['duration_hours']
+            }
         }
         
     except Exception as e:
@@ -722,15 +730,20 @@ async def get_cache_stats(api: HybridSearchAPI = Depends(get_search_api)):
 
 @app.post("/admin/clear-cache")
 async def clear_cache(api: HybridSearchAPI = Depends(get_search_api)):
-    """Vide le cache des embeddings (admin only)"""
+    """Vide tous les caches (admin only)"""
     try:
-        logger.info("🗑️ Vidage du cache des embeddings...")
+        logger.info("🗑️ Vidage de tous les caches...")
         
+        # Vider le cache des embeddings
         api.embedding_cache.cache = {}
         api.embedding_cache._save_cache()
         
-        logger.info("✅ Cache vidé avec succès")
-        return {"message": "Cache vidé avec succès", "status": "success"}
+        # Vider le cache des résultats
+        api.result_cache.cache = {}
+        api.result_cache._save_cache()
+        
+        logger.info("✅ Tous les caches vidés avec succès")
+        return {"message": "Tous les caches vidés avec succès", "status": "success"}
         
     except Exception as e:
         logger.error(f"❌ Erreur vidage cache: {str(e)}")

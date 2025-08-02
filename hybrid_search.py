@@ -97,6 +97,82 @@ class EmbeddingCache:
             'duration_hours': self.duration_hours
         }
 
+class ResultCache:
+    """Cache pour les résultats de recherche complets"""
+    
+    def __init__(self, cache_file="result_cache.json", duration_hours=1):
+        self.cache_file = cache_file
+        self.duration_hours = duration_hours
+        self.cache = self._load_cache()
+    
+    def _load_cache(self):
+        """Charge le cache depuis le fichier"""
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, 'r') as f:
+                    cache_data = json.load(f)
+                
+                # Nettoyer le cache expiré
+                current_time = datetime.now()
+                cleaned_cache = {}
+                
+                for query, data in cache_data.items():
+                    cache_time = datetime.fromisoformat(data['timestamp'])
+                    if current_time - cache_time < timedelta(hours=self.duration_hours):
+                        cleaned_cache[query] = data
+                
+                logger.info(f"📦 Cache résultats chargé: {len(cleaned_cache)} entrées valides")
+                return cleaned_cache
+                
+            except Exception as e:
+                logger.error(f"❌ Erreur chargement cache résultats: {e}")
+                return {}
+        return {}
+    
+    def _save_cache(self):
+        """Sauvegarde le cache dans le fichier"""
+        try:
+            with open(self.cache_file, 'w') as f:
+                json.dump(self.cache, f, indent=2)
+            logger.info(f"💾 Cache résultats sauvegardé: {len(self.cache)} entrées")
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde cache résultats: {e}")
+    
+    def get(self, query):
+        """Récupère un résultat du cache"""
+        query_lower = query.lower().strip()
+        if query_lower in self.cache:
+            data = self.cache[query_lower]
+            cache_time = datetime.fromisoformat(data['timestamp'])
+            
+            if datetime.now() - cache_time < timedelta(hours=self.duration_hours):
+                logger.info(f"🎯 Cache hit résultats pour: '{query}'")
+                return data['results']
+            else:
+                logger.info(f"⏰ Cache résultats expiré pour: '{query}'")
+                del self.cache[query_lower]
+        
+        logger.info(f"❌ Cache miss résultats pour: '{query}'")
+        return None
+    
+    def set(self, query, results):
+        """Stocke un résultat dans le cache"""
+        query_lower = query.lower().strip()
+        self.cache[query_lower] = {
+            'results': results,
+            'timestamp': datetime.now().isoformat()
+        }
+        logger.info(f"💾 Cache résultats set pour: '{query}'")
+        self._save_cache()
+    
+    def get_stats(self):
+        """Retourne les statistiques du cache"""
+        return {
+            'total_entries': len(self.cache),
+            'cache_file': self.cache_file,
+            'duration_hours': self.duration_hours
+        }
+
 # Configuration Appwrite
 APPWRITE_ENDPOINT = os.environ.get("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
 APPWRITE_PROJECT = os.environ.get("APPWRITE_PROJECT_ID")
@@ -111,7 +187,8 @@ class HybridSearchAPI:
         self.vectorstore = None
         self.db = None
         self.openai_api_key = openai_api_key
-        self.embedding_cache = EmbeddingCache()  # Ajouter le cache
+        self.embedding_cache = EmbeddingCache()  # Cache des embeddings
+        self.result_cache = ResultCache()  # Cache des résultats
         self._load_components()
     
     def _load_components(self):
@@ -206,31 +283,40 @@ class HybridSearchAPI:
         return results
     
     def semantic_search(self, query: str, min_score: float = 0.8) -> List[Dict]:
-        """Recherche sémantique avec cache des embeddings"""
+        """Recherche sémantique avec cache optimisé (embeddings + résultats)"""
         if not self.vectorstore:
             return []
         
         try:
             logger.info(f"🧠 Recherche sémantique: '{query}'")
             
-            # Vérifier le cache d'abord
+            # 1. Vérifier le cache des résultats complets (le plus rapide)
+            cached_results = self.result_cache.get(query)
+            if cached_results:
+                logger.info("✅ Utilisation du cache des résultats complets")
+                return cached_results
+            
+            # 2. Vérifier le cache des embeddings
             cached_embedding = self.embedding_cache.get(query)
             
             if cached_embedding:
-                logger.info("✅ Utilisation du cache pour l'embedding")
-                # Note: Pour l'instant, on utilise la recherche normale
-                # car FAISS recalcule l'embedding de toute façon
-                # Dans une version future, on pourrait optimiser davantage
+                logger.info("✅ Utilisation du cache des embeddings")
+                # Utiliser l'embedding en cache pour la recherche FAISS
+                results_with_scores = self.vectorstore.similarity_search_by_vector(
+                    cached_embedding, k=10
+                )
             else:
                 logger.info("🔄 Calcul d'embedding nécessaire")
-                # Calculer l'embedding et le mettre en cache
-                # L'embedding sera calculé automatiquement par FAISS
-                # On simule le stockage en cache pour les futures requêtes
-                fake_embedding = [0.1] * 3072  # Vecteur factice pour le cache
-                self.embedding_cache.set(query, fake_embedding)
+                # Calculer l'embedding réel et le mettre en cache
+                embedding = self.embeddings.embed_query(query)
+                self.embedding_cache.set(query, embedding)
+                
+                # Recherche avec l'embedding calculé
+                results_with_scores = self.vectorstore.similarity_search_by_vector(
+                    embedding, k=10
+                )
             
-            results_with_scores = self.vectorstore.similarity_search_with_score(query, k=10)
-            
+            # 3. Formater les résultats
             semantic_results = []
             for doc, score in results_with_scores:
                 if score >= min_score:
@@ -245,6 +331,9 @@ class HybridSearchAPI:
                             'match_type': 'semantic',
                             'score': float(score)
                         })
+            
+            # 4. Mettre en cache les résultats complets
+            self.result_cache.set(query, semantic_results)
             
             return semantic_results
         except Exception as e:
