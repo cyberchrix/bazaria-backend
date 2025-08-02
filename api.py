@@ -676,41 +676,8 @@ async def get_stats(api: HybridSearchAPI = Depends(get_search_api)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des stats: {str(e)}")
 
-@app.post("/admin/rebuild-index")
-async def rebuild_index_endpoint():
-    """Force la reconstruction complète de l'index (admin only)"""
-    try:
-        logger.info("🔄 Reconstruction forcée de l'index demandée...")
-        
-        from generate_index_paginated import generate_index
-        generate_index()
-        
-        logger.info("✅ Index reconstruit avec succès")
-        return {"message": "Index reconstruit avec succès", "status": "success"}
-        
-    except Exception as e:
-        logger.error(f"❌ Erreur lors de la reconstruction: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la reconstruction: {str(e)}")
-
-@app.post("/admin/update-index")
-async def update_index_endpoint():
-    """Met à jour l'index avec les nouvelles annonces (admin only)"""
-    try:
-        logger.info("🔄 Mise à jour de l'index demandée...")
-        
-        from generate_index_paginated import generate_index
-        generate_index()
-        
-        logger.info("✅ Index mis à jour avec succès")
-        return {
-            "message": "Index mis à jour avec succès",
-            "status": "success",
-            "new_announcements": 0
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Erreur lors de la mise à jour: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
+# Endpoints supprimés car redondants avec /admin/force-new-format
+# Utilisez /admin/force-new-format pour reconstruire l'index avec le nouveau format
 
 @app.get("/admin/index-content")
 async def get_index_content(api: HybridSearchAPI = Depends(get_search_api)):
