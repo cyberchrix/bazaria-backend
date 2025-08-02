@@ -69,12 +69,31 @@ class EmbeddingCache:
         """Sauvegarde le cache dans le fichier"""
         try:
             logger.info(f"💾 Tentative de sauvegarde du cache vers: {self.cache_file}")
+            
+            # Vérifier si le répertoire existe
+            import os
+            cache_dir = os.path.dirname(self.cache_file)
+            if cache_dir and not os.path.exists(cache_dir):
+                logger.info(f"📁 Création du répertoire: {cache_dir}")
+                os.makedirs(cache_dir, exist_ok=True)
+            
+            # Vérifier les permissions
+            logger.info(f"🔐 Vérification des permissions pour: {self.cache_file}")
+            
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
-            logger.info(f"✅ Cache sauvegardé: {len(self.cache)} entrées dans {self.cache_file}")
+            
+            # Vérifier que le fichier a été créé
+            if os.path.exists(self.cache_file):
+                file_size = os.path.getsize(self.cache_file)
+                logger.info(f"✅ Cache sauvegardé: {len(self.cache)} entrées dans {self.cache_file} ({file_size} bytes)")
+            else:
+                logger.error(f"❌ Fichier non créé: {self.cache_file}")
+                
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde cache: {e}")
             logger.error(f"📂 Fichier problématique: {self.cache_file}")
+            logger.error(f"🔍 Détails de l'erreur: {str(e)}")
     
     def get(self, query):
         """Récupère un embedding du cache"""
@@ -164,12 +183,31 @@ class ResultCache:
         """Sauvegarde le cache dans le fichier"""
         try:
             logger.info(f"💾 Tentative de sauvegarde du cache résultats vers: {self.cache_file}")
+            
+            # Vérifier si le répertoire existe
+            import os
+            cache_dir = os.path.dirname(self.cache_file)
+            if cache_dir and not os.path.exists(cache_dir):
+                logger.info(f"📁 Création du répertoire: {cache_dir}")
+                os.makedirs(cache_dir, exist_ok=True)
+            
+            # Vérifier les permissions
+            logger.info(f"🔐 Vérification des permissions pour: {self.cache_file}")
+            
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
-            logger.info(f"✅ Cache résultats sauvegardé: {len(self.cache)} entrées dans {self.cache_file}")
+            
+            # Vérifier que le fichier a été créé
+            if os.path.exists(self.cache_file):
+                file_size = os.path.getsize(self.cache_file)
+                logger.info(f"✅ Cache résultats sauvegardé: {len(self.cache)} entrées dans {self.cache_file} ({file_size} bytes)")
+            else:
+                logger.error(f"❌ Fichier non créé: {self.cache_file}")
+                
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde cache résultats: {e}")
             logger.error(f"📂 Fichier problématique: {self.cache_file}")
+            logger.error(f"🔍 Détails de l'erreur: {str(e)}")
     
     def get(self, query):
         """Récupère un résultat du cache"""
