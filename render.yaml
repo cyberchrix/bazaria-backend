@@ -19,4 +19,6 @@ services:
       - key: APPWRITE_DATABASE_ID
         sync: false  # À configurer dans l'interface Render
       - key: APPWRITE_COLLECTION_ID
-        sync: false  # À configurer dans l'interface Render 
+        sync: false  # À configurer dans l'interface Render
+      - key: RERANK_ENABLED
+        value: "true" 
