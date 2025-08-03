@@ -261,6 +261,10 @@ APPWRITE_API_KEY = os.environ.get("APPWRITE_API_KEY")
 DATABASE_ID = os.environ.get("APPWRITE_DATABASE_ID")
 COLLECTION_ID = os.environ.get("APPWRITE_COLLECTION_ID")
 
+# Configuration Reranking
+COHERE_API_KEY = os.environ.get("COHERE_API_KEY")
+RERANK_ENABLED = os.environ.get("RERANK_ENABLED", "true").lower() == "true"
+
 class HybridSearchAPI:
     """API de recherche hybride (sémantique + textuelle)"""
     
@@ -306,6 +310,19 @@ class HybridSearchAPI:
                 llm=self.llm
             )
             logger.info("✅ MultiQueryRetriever initialisé avec succès")
+            
+            # Initialiser le Reranker personnalisé
+            self.reranker = None
+            if RERANK_ENABLED:
+                try:
+                    logger.info("🔄 Initialisation du Reranker personnalisé...")
+                    self.reranker = CustomReranker()
+                    logger.info("✅ Reranker personnalisé initialisé avec succès")
+                except Exception as e:
+                    logger.warning(f"⚠️ Impossible d'initialiser le reranker: {e}")
+                    self.reranker = None
+            else:
+                logger.info("ℹ️ Reranking désactivé")
             
         except Exception as e:
             logger.error(f"❌ Erreur lors du chargement de l'index: {e}")
@@ -431,6 +448,13 @@ class HybridSearchAPI:
                 # Trier par score décroissant
                 semantic_results.sort(key=lambda x: x['score'], reverse=True)
                 
+                # Appliquer le reranking si disponible
+                if self.reranker and len(semantic_results) > 0:
+                    logger.info(f"🔄 Application du reranking pour améliorer la pertinence")
+                    semantic_results = self._apply_reranking(query, semantic_results, max_results=15)
+                else:
+                    logger.info(f"ℹ️ Reranking non appliqué (non disponible ou aucun résultat)")
+                
                 logger.info(f"✅ {len(semantic_results)} résultats formatés avec MultiQueryRetriever")
                 
                 # Mettre en cache les résultats complets
@@ -548,6 +572,13 @@ class HybridSearchAPI:
                 # Trier par score et limiter
                 semantic_results.sort(key=lambda x: x['score'], reverse=True)
                 semantic_results = semantic_results[:max_results]
+                
+                # Appliquer le reranking si disponible
+                if self.reranker and len(semantic_results) > 0:
+                    logger.info(f"🔄 Application du reranking avancé pour améliorer la pertinence")
+                    semantic_results = self._apply_reranking(query, semantic_results, max_results=max_results)
+                else:
+                    logger.info(f"ℹ️ Reranking avancé non appliqué (non disponible ou aucun résultat)")
                 
                 # Mettre en cache les résultats complets
                 self.result_cache.set(query, semantic_results)
@@ -896,6 +927,111 @@ class HybridSearchAPI:
             logger.error(f"❌ Erreur calcul score: {e}")
             # Fallback: score basé sur la position
             return max(0.5, 1.0 - (position * 0.05))
+    
+    def _apply_reranking(self, query: str, results: List[Dict], max_results: int = 10) -> List[Dict]:
+        """Applique le reranking aux résultats de recherche"""
+        if not self.reranker or len(results) == 0:
+            return results
+        
+        try:
+            logger.info(f"🔄 Application du reranking pour {len(results)} résultats")
+            
+            # Utiliser le reranker personnalisé
+            reranked_results = self.reranker.rerank(query, results, max_results)
+            logger.info(f"✅ Reranking appliqué: {len(reranked_results)} résultats rerankés")
+            
+            return reranked_results
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du reranking: {e}")
+            # Retourner les résultats originaux en cas d'erreur
+            return results[:max_results]
+
+class CustomReranker:
+    """Reranker personnalisé utilisant des heuristiques avancées"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def rerank(self, query: str, results: List[Dict], max_results: int = 10) -> List[Dict]:
+        """Applique un reranking personnalisé basé sur des heuristiques"""
+        
+        if not results:
+            return results
+        
+        self.logger.info(f"🔄 Reranking personnalisé pour '{query}' avec {len(results)} résultats")
+        
+        # Calculer les nouveaux scores
+        reranked_results = []
+        for i, result in enumerate(results):
+            new_score = self._calculate_rerank_score(query, result, i)
+            
+            reranked_result = result.copy()
+            reranked_result['original_score'] = result.get('score', 0.0)
+            reranked_result['score'] = new_score
+            reranked_result['match_type'] = f"{result.get('match_type', 'semantic')}_reranked"
+            reranked_result['rerank_position'] = i + 1
+            
+            reranked_results.append(reranked_result)
+        
+        # Trier par nouveau score
+        reranked_results.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Limiter les résultats
+        reranked_results = reranked_results[:max_results]
+        
+        self.logger.info(f"✅ Reranking terminé: {len(reranked_results)} résultats")
+        return reranked_results
+    
+    def _calculate_rerank_score(self, query: str, result: Dict, position: int) -> float:
+        """Calcule un score de reranking sophistiqué"""
+        
+        base_score = result.get('score', 0.0)
+        title = result.get('title', '').lower()
+        description = result.get('description', '').lower()
+        price = result.get('price', 0)
+        location = result.get('location', '').lower()
+        
+        query_lower = query.lower()
+        query_words = query_lower.split()
+        
+        # 1. Score de correspondance exacte
+        exact_match_bonus = 0.0
+        for word in query_words:
+            if word in title or word in description:
+                exact_match_bonus += 0.1
+        
+        # 2. Score de pertinence sémantique
+        semantic_bonus = 0.0
+        if any(word in title for word in query_words):
+            semantic_bonus += 0.2
+        if any(word in description for word in query_words):
+            semantic_bonus += 0.1
+        
+        # 3. Score de prix (pour les requêtes de prix)
+        price_bonus = 0.0
+        if any(word in query_lower for word in ['pas cher', 'bon prix', 'économique', 'abordable']):
+            if price < 10000:
+                price_bonus += 0.3
+            elif price < 20000:
+                price_bonus += 0.1
+        
+        # 4. Score de localisation
+        location_bonus = 0.0
+        if any(word in query_lower for word in ['paris', 'lyon', 'marseille', 'toulouse']):
+            if any(city in location for city in ['paris', 'lyon', 'marseille', 'toulouse']):
+                location_bonus += 0.2
+        
+        # 5. Score de position (décroissance douce)
+        position_penalty = position * 0.02
+        
+        # 6. Score final
+        final_score = base_score + exact_match_bonus + semantic_bonus + price_bonus + location_bonus - position_penalty
+        
+        # Normaliser entre 0.5 et 1.0
+        final_score = max(0.5, min(1.0, final_score))
+        
+        return final_score
 
 def interactive_search():
     """Recherche interactive"""
