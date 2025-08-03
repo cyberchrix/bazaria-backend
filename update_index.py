@@ -10,6 +10,21 @@ import os
 import json
 from criteria_utils import format_criteria_with_labels
 
+# Charger les variables d'environnement depuis .env
+def load_env_vars():
+    """Charge les variables d'environnement depuis le fichier .env"""
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
+# Charger les variables d'environnement
+load_env_vars()
+
 # ==== Configuration ====
 APPWRITE_ENDPOINT = os.environ.get("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1")
 APPWRITE_PROJECT = os.environ.get("APPWRITE_PROJECT_ID")
